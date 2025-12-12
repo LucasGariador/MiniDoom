@@ -1,10 +1,12 @@
 #pragma once
 #include <SDL.h>
-#include <vector>   
+#include <iostream>
+#include <vector>  
 
 class Sprite {
 public:
 	float x, y; // Posición en el mundo
+	bool isDead = false;
 	int hp;
 	SDL_Surface* surface; // Superficie de la imagen del sprite
 
@@ -16,4 +18,15 @@ public:
 		float playerX, float playerY,
 		float playerAngle, float FOV
 		);
+
+	void takeDamage(int amount) {
+		if (isDead) return;
+		hp -= amount;
+		if (hp <= 0) {
+			hp = 0;
+			isDead = true;
+			// Opcional: Cambiar la textura a una de "cadáver" aquí
+			std::cout << "¡Enemigo eliminado!" << std::endl;
+		}
+	}
 };
