@@ -111,12 +111,13 @@ private:
     SDL_Texture* crosshairTexture;
     // ... agrega aquí techo, arma, etc ...
     SDL_Surface* fireballTex;
-    SDL_Surface* enemySurface;
 
     // --- ENTIDADES ---
     std::vector<Projectile*> projectiles;
     std::vector<Sprite*> sprites;
+    std::vector<SDL_Surface*> textureEnemyDie;
     Weapon playerStaff;
+    SDL_Surface* textureEnemyIdle;
     std::vector<float> zBuffer;
 
     // --- HELPERS INTERNOS ---

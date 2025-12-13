@@ -3,14 +3,32 @@
 #include <iostream>
 #include <vector>  
 
+enum EnemyState {
+	STATE_IDLE,    // Parado / Caminando
+	STATE_DYING,   // Reproduciendo animación de muerte
+	STATE_DEAD     // Ya murió (se queda en el suelo o desaparece)
+};
+
 class Sprite {
 public:
 	float x, y; // Posición en el mundo
 	bool isDead = false;
 	int hp;
+	// SISTEMA DE ANIMACIÓN
+	EnemyState state;           // Estado actual
+	SDL_Surface* currentSurf;   // La imagen que se dibuja ACTUALMENTE (puntero a una de la lista)
+
+	// Animaciones
+	std::vector<SDL_Surface*> animDeath; // Lista de imágenes de muerte
+	int animFrame;       // En qué cuadro vamos (0, 1, 2...)
+	float animTimer;     // Tiempo acumulado para cambiar cuadro
+	float animSpeed;     // Qué tan rápido cambia (ej: 0.2 segundos)
 	SDL_Surface* surface; // Superficie de la imagen del sprite
 
-	Sprite(float px, float py, SDL_Surface* surf);
+	Sprite(float px, float py, SDL_Surface* initialTexture);
+	~Sprite();
+
+	void update(float deltaTime);
 
 	void draw(SDL_Renderer* renderer,
 		const std::vector<float>& zBuffer,
@@ -19,14 +37,7 @@ public:
 		float playerAngle, float FOV
 		);
 
-	void takeDamage(int amount) {
-		if (isDead) return;
-		hp -= amount;
-		if (hp <= 0) {
-			hp = 0;
-			isDead = true;
-			// Opcional: Cambiar la textura a una de "cadáver" aquí
-			std::cout << "¡Enemigo eliminado!" << std::endl;
-		}
-	}
+	void takeDamage(int amount);
+
+	void addDeathFrame(SDL_Surface* surf);
 };

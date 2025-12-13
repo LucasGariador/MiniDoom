@@ -2,7 +2,12 @@
 
 Game::Game()
     : playerX(0), playerY(0), playerAngle(0), FOV(0), // Valores por defecto seguros
-    isRunning(false), window(nullptr), renderer(nullptr)
+    isRunning(false), window(nullptr), renderer(nullptr), ceilH(0), ceilW(0),
+    wallSurface(nullptr), floorPixels(nullptr), zBuffer(), font(nullptr),
+    crosshairTexture(nullptr), textureEnemyIdle(nullptr), screenTexture(nullptr),
+    screenBuffer(nullptr), ceilPixels(nullptr), floorW(0), floorH(0), screenWidth(0), screenHeight(0),
+	playerIsMoving(false), deltaTime(0.0f), mouseSensitivity(0.003f), moveSpeed(4.0f), crossH(0), crossW(0), 
+	crosshairSurf(nullptr), fireballTex(nullptr), floorSurface(nullptr), wallPixels(nullptr)
 {
     //Nada
 }
@@ -18,7 +23,8 @@ bool Game::init(const char* title, int width, int height) {
 
     playerX = 2.5f;            // Posición inicial X (mitad de la celda 3)
     playerY = 7.5f;            // Posición inicial Y
-    playerAngle = M_PI / 2.0f; // Mirando hacia "arriba" (90 grados)
+	playerAngle = 0.0f; //ARRIBA(Norte) 3 * M_PI / 2 // Derecha(Este) 0 // Abajo(Sur) M_PI / 2 // Izquierda(Oeste) M_PI
+
     FOV = 60.0f * (M_PI / 180.0f); // 60 grados convertidos a radianes
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) return false;
@@ -93,9 +99,15 @@ bool Game::init(const char* title, int width, int height) {
     //Projectile texture
     fireballTex = Utils::LoadTexture("fireball2.png");
     //Enemys
-    enemySurface = Utils::LoadTexture("zombie.png"); // Carga una textura de sprite desde un archivo 
+    textureEnemyIdle = Utils::LoadTexture("ogre_idle.png");
 
-    if (!enemySurface) {
+    // Cargar secuencia de muerte
+    textureEnemyDie.push_back(Utils::LoadTexture("ogre_die1.png"));
+    textureEnemyDie.push_back(Utils::LoadTexture("ogre_die2.png"));
+    textureEnemyDie.push_back(Utils::LoadTexture("ogre_die3.png"));
+    textureEnemyDie.push_back(Utils::LoadTexture("ogre_dead.png"));
+
+    if (!textureEnemyIdle) {
         std::cerr << "Error al cargar la textura: " << SDL_GetError() << std::endl;
         return 1;
     }
@@ -196,7 +208,6 @@ void Game::update() {
     {
         playerIsMoving = true;
     }
-    // ... tu lógica de MoveWithCollision ...
 
     // Actualizar Proyectiles
     for (int i = 0; i < projectiles.size(); i++) {
@@ -207,7 +218,7 @@ void Game::update() {
 
         // Chequear colisión con el Enemigo (Si está vivo)
         for (Sprite* s : sprites) {
-            if (p->active && s->isDead) {
+            if (p->active && !s->isDead) {
                 // Distancia simple (Pitágoras) entre proyectil y enemigo
                 float distSq = (p->x - s->x) * (p->x - s->x) + (p->y - s->y) * (p->y - s->y);
 
@@ -219,6 +230,10 @@ void Game::update() {
                 }
             }
         }
+    }
+
+    for (Sprite* s : sprites) {
+        s->update(deltaTime); // <--- IMPORTANTE
     }
 
     // Limpieza: Eliminar proyectiles inactivos de la memoria
@@ -607,8 +622,11 @@ void Game::loadLevel() {
             // SI ES UN ENEMIGO (Código 9)
             if (cellType == 9) {
                 // Crear el sprite en el CENTRO de la celda (x + 0.5f)
-                // Usamos la textura 'enemyTexture' que debiste cargar en init
-                Sprite* s = new Sprite(x + 0.5f, y + 0.5f, enemySurface);
+                Sprite* s = new Sprite(x + 0.5f, y + 0.5f, textureEnemyIdle);
+
+                for (auto surf : textureEnemyDie) {
+                    s->addDeathFrame(surf);
+                }
                 sprites.push_back(s);
 
                 // IMPORTANTE: Borrar el 9 del mapa para que sea suelo transitable
@@ -725,7 +743,15 @@ void Game::clean() {
         SDL_DestroyTexture(crosshairTexture);
     }
 
+    for (SDL_Surface* surf : textureEnemyDie) {
+        SDL_FreeSurface(surf);
+    }
+    textureEnemyDie.clear();
 
+    if (textureEnemyIdle) {
+        SDL_FreeSurface(textureEnemyIdle);
+        textureEnemyIdle = nullptr;
+    }
 
     if (renderer) {
         SDL_DestroyRenderer(renderer);

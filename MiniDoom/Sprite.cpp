@@ -4,7 +4,23 @@
 #include <algorithm>
 #include <vector>
 
-Sprite::Sprite(float px, float py, SDL_Surface* surf) : x(px), y(py), surface(surf), hp(100) {}
+Sprite::Sprite(float px, float py, SDL_Surface* initialTexture)
+    : x(px), y(py), currentSurf(initialTexture), hp(100)
+{
+    state = STATE_IDLE;
+    animFrame = 0;
+    animTimer = 0.0f;
+    animSpeed = 0.15f; // Cambia de imagen cada 0.15 segundos
+}
+
+Sprite::~Sprite()
+{
+    // Liberar superficies de animación
+    for (SDL_Surface* surf : animDeath) {
+        SDL_FreeSurface(surf);
+    }
+    // No liberamos currentSurf porque apunta a una de las de animDeath
+}
 
 void Sprite::draw(SDL_Renderer* renderer,
     const std::vector<float>& zBuffer,
@@ -12,23 +28,23 @@ void Sprite::draw(SDL_Renderer* renderer,
     float playerX, float playerY,
     float playerAngle, float FOV)
 {
-    if (!surface) return;
+    if (!currentSurf) return;
 
-    if (surface->format->BytesPerPixel != 4) {
+    if (currentSurf->format->BytesPerPixel != 4) {
         std::cout << "ERROR FATAL: La imagen no es de 32 bits. Es de: "
-            << (int)surface->format->BytesPerPixel << " bytes." << std::endl;
+            << (int)currentSurf->format->BytesPerPixel << " bytes." << std::endl;
         return; // Detener dibujo para no crashear
     }
 
     // Safety check: Ensure surface is 32-bit (4 bytes per pixel)
     // If your BMP is 24-bit, this code will crash without conversion.
-    if (surface->format->BytesPerPixel != 4) {
+    if (currentSurf->format->BytesPerPixel != 4) {
         std::cerr << "Error: Sprite surface must be 32-bit (ARGB/RGBA).\n";
         return;
     }
 
-    const int textureWidth = surface->w;
-    const int textureHeight = surface->h;
+    const int textureWidth = currentSurf->w;
+    const int textureHeight = currentSurf->h;
 
     // 1. Relative position
     const float dx = x - playerX;
@@ -96,8 +112,8 @@ void Sprite::draw(SDL_Renderer* renderer,
     if (drawEndY >= SCREEN_HEIGHT) drawEndY = SCREEN_HEIGHT - 1;
 
     // Direct pixel access
-    Uint32* pixels32 = (Uint32*)surface->pixels;
-    int pitch32 = surface->pitch / 4;
+    Uint32* pixels32 = (Uint32*)currentSurf->pixels;
+    int pitch32 = currentSurf->pitch / 4;
 
     // Pre-calculate steps to avoid division in the loop
     float stepX = (float)textureWidth / (float)spriteScreenW;
@@ -134,7 +150,7 @@ void Sprite::draw(SDL_Renderer* renderer,
 
                 // 3. CALCULO SEGURO
                 int index = texY * pitch32 + texX;
-                int maxIndex = (surface->pitch / 4) * surface->h; // Tamaño total del array en Uint32
+                int maxIndex = (currentSurf->pitch / 4) * currentSurf->h; // Tamaño total del array en Uint32
 
                 // 4. DOBLE VERIFICACIÓN (El "salvavidas")
                 if (index >= 0 && index < maxIndex) {
@@ -148,7 +164,7 @@ void Sprite::draw(SDL_Renderer* renderer,
                         if (color != 0xFFFFFFFF) {
 
                             Uint8 r, g, b, a;
-                            SDL_GetRGBA(color, surface->format, &r, &g, &b, &a);
+                            SDL_GetRGBA(color, currentSurf->format, &r, &g, &b, &a);
 
                             // Performance Warning: 
                             // SDL_RenderDrawPoint is SLOW. 
@@ -165,4 +181,51 @@ void Sprite::draw(SDL_Renderer* renderer,
         }
         texPosX += stepX;
     }
+}
+
+void Sprite::update(float deltaTime) {
+    if (state == STATE_DYING) {
+        animTimer += deltaTime;
+
+        // ¿Es hora de cambiar de frame?
+        if (animTimer >= animSpeed) {
+            animTimer = 0; // Reset timer
+            animFrame++;   // Siguiente imagen
+
+            // Verificar si terminamos la animación
+            if (animFrame < animDeath.size()) {
+                // Actualizamos la imagen visible
+                currentSurf = animDeath[animFrame];
+            }
+            else {
+                // Se acabaron los frames, el enemigo está oficialmente MUERTO
+                state = STATE_DEAD;
+                // Dejamos la última imagen (el cadáver en el suelo)
+                currentSurf = animDeath.back();
+
+                // Opcional: Hacerlo no colisionable (atravesable)
+            }
+        }
+    }
+}
+
+void Sprite::takeDamage(int amount) {
+    if (state == STATE_DEAD || state == STATE_DYING) return; // No rematar muertos
+
+    hp -= amount;
+    if (hp <= 0) {
+        hp = 0;
+        state = STATE_DYING; // <--- AQUÍ EMPIEZA LA ANIMACIÓN
+        animFrame = 0;
+        animTimer = 0;
+
+        // Cambiar inmediatamente al primer frame de muerte si existe
+        if (!animDeath.empty()) {
+            currentSurf = animDeath[0];
+        }
+    }
+}
+
+void Sprite::addDeathFrame(SDL_Surface* surf) {
+    animDeath.push_back(surf);
 }
