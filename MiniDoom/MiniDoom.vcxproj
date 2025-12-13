@@ -129,6 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Game.cpp" />
     <ClCompile Include="MiniDoom.cpp" />
     <ClCompile Include="Projectile.cpp" />
     <ClCompile Include="Sprite.cpp" />
@@ -136,6 +137,7 @@
     <ClCompile Include="Weapon.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game.h" />
     <ClInclude Include="Projectile.h" />
     <ClInclude Include="Sprite.h" />
     <ClInclude Include="Utils.h" />
