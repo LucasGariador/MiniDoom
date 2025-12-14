@@ -19,7 +19,7 @@ struct Projectile
         dy = sinf(angle) * speed;
 
         // Creamos un Sprite visual para este proyectil
-        spriteVis = new Sprite(x, y, texture);
+        spriteVis = new Sprite(x, y, texture, 0.5f);
     }
 
     ~Projectile() {

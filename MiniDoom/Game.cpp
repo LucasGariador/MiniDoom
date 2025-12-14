@@ -94,43 +94,21 @@ bool Game::init(const char* title, int width, int height) {
     ceilH = ceilSurf->h;
     //cargar textura de sprite
     //Weapon 
-    Weapon playerStaff;
-    playerStaff.init(renderer, "weapon_staff_idle.png", "staff_fire.png");
-    //Projectile texture
-    fireballTex = Utils::LoadTexture("fireball2.png");
-    //Enemys
-    textureEnemyIdle = Utils::LoadTexture("ogre_idle.png");
+    
+    playerStaff.init(renderer, "weapon_staff_idle.png", "staff_fire.png", true, 1.0f, 50);
 
-    // Cargar secuencia de muerte
-    textureEnemyDie.push_back(Utils::LoadTexture("ogre_die1.png"));
-    textureEnemyDie.push_back(Utils::LoadTexture("ogre_die2.png"));
-    textureEnemyDie.push_back(Utils::LoadTexture("ogre_die3.png"));
-    textureEnemyDie.push_back(Utils::LoadTexture("ogre_dead.png"));
+	handsWeapon.init(renderer, "hands.png", "hands.png", false, 0.482f, 0);
 
-    if (!textureEnemyIdle) {
-        std::cerr << "Error al cargar la textura: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-    if (!wallSurface) {
-        std::cerr << "Error al cargar la textura: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-    if (!playerStaff.textureIdle || !playerStaff.textureFire) {
-        std::cerr << "Error al cargar la textura del arma: " << SDL_GetError() << std::endl;
-        return 1;
-    }
+	currentWeapon = &handsWeapon; // hands por defecto
+ 
+	//Enemys
+    textureEnemyDie.clear(); // Por seguridad
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_die1.png"));
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_die2.png"));
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_die3.png"));
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_dead.png"));
 
-    crosshairSurf = Utils::LoadTexture("crosshair.png");
 
-    if (!crosshairSurf) {
-        std::cout << "Error cargando crosshair" << std::endl; // Manejo de error básico
-    }
-
-    crosshairTexture = SDL_CreateTextureFromSurface(renderer, crosshairSurf);
-
-    crossW = crosshairSurf->w;
-    crossH = crosshairSurf->h;
-    SDL_FreeSurface(crosshairSurf);
 
     loadLevel();
     isRunning = true;
@@ -158,9 +136,9 @@ void Game::handleEvents() {
         if (event.type == SDL_MOUSEBUTTONDOWN) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 if (ammo > 0) {
-                    playerStaff.shoot(); // Animación del báculo
+					currentWeapon -> shoot();
                     // CREAR PROYECTIL
-                    // Lo movemos un poquito adelante del jugador (0.5f) para que no nazca dentro de ti
+                    // Lo movemos un poquito adelante del jugador (0.5f) para que no nazca dentro de el
                     float spawnX = playerX + cosf(playerAngle) * 0.5f;
                     float spawnY = playerY + sinf(playerAngle) * 0.5f;
 
@@ -175,6 +153,21 @@ void Game::handleEvents() {
         }
     }
 
+}
+
+template <typename T>
+void Game::cleanDeadEntities(std::vector<T*>& list) {
+    list.erase(std::remove_if(list.begin(), list.end(),
+        [](T* obj) {
+            bool shouldDelete = false;
+            if constexpr (std::is_same<T, Projectile>::value) {
+                shouldDelete = !obj->active;
+            } else if constexpr (std::is_same<T, Sprite>::value) {
+                shouldDelete = obj->isDead;
+			}
+            return shouldDelete;
+        }
+    ), list.end());
 }
 
 void Game::update() {
@@ -200,6 +193,13 @@ void Game::update() {
     if (currentKeyStates[SDL_SCANCODE_D]) MoveWithCollision(playerX, playerY, -sinA * moveStep, cosA * moveStep, worldMap, playerRadius, skin);
     if (currentKeyStates[SDL_SCANCODE_A]) MoveWithCollision(playerX, playerY, sinA * moveStep, -cosA * moveStep, worldMap, playerRadius, skin);
 
+    if (currentKeyStates[SDL_SCANCODE_1]) {
+        currentWeapon = &handsWeapon;
+    }
+    if (currentKeyStates[SDL_SCANCODE_2]) {
+        currentWeapon = &playerStaff;
+    }
+
     playerIsMoving = false;
     if (currentKeyStates[SDL_SCANCODE_W] ||
         currentKeyStates[SDL_SCANCODE_S] ||
@@ -210,42 +210,72 @@ void Game::update() {
     }
 
     // Actualizar Proyectiles
-    for (int i = 0; i < projectiles.size(); i++) {
-        Projectile* p = projectiles[i];
-
-        // Mover y chequear paredes
+    for (Projectile* p : projectiles) {
         p->update(deltaTime, mapWidth, mapHeight, worldMap);
 
-        // Chequear colisión con el Enemigo (Si está vivo)
-        for (Sprite* s : sprites) {
-            if (p->active && !s->isDead) {
-                // Distancia simple (Pitágoras) entre proyectil y enemigo
-                float distSq = (p->x - s->x) * (p->x - s->x) + (p->y - s->y) * (p->y - s->y);
+        // Si el proyectil chocó contra una pared, ya no buscamos enemigos
+        if (!p->active) continue;
 
-                // Si la distancia es menor a 0.5 (radio de impacto), ¡BOOM!
-                if (distSq < 0.5f * 0.5f) {
-                    s->takeDamage(35);
-                    p->active = false; // El proyectil explota al impactar
-                    std::cout << "Impacto! HP: " << s->hp << std::endl;
-                }
+        // Bucle de colisión contra Sprites
+        for (Sprite* s : sprites) {
+            // Ignorar: Muertos o Pickups (Items)
+            // (Asumiendo que agregaste 'virtual bool isPickup()' en Sprite como vimos antes)
+            if (s->isDead || s->isPickup()) continue;
+
+            // Distancia simple (Pitágoras sin raiz cuadrada para velocidad)
+            float dx = p->x - s->x;
+            float dy = p->y - s->y;
+            float distSq = dx * dx + dy * dy;
+
+            // Radio de impacto (0.5f de radio = 0.25f cuadrado)
+            if (distSq < 0.25f) {
+                s->takeDamage(35); // Dañar enemigo
+                p->active = false; // Destruir bala
+                break; // <--- IMPORTANTE: La bala ya chocó, dejar de buscar en otros enemigos
             }
         }
     }
-
     for (Sprite* s : sprites) {
-        s->update(deltaTime); // <--- IMPORTANTE
+        // Si ya lo agarramos o está muerto, ignorar
+        if (s->isDead) continue;
+
+        // 1. CHEQUEO DE DISTANCIA (Colisión circular)
+        float dx = s->x - playerX;
+        float dy = s->y - playerY;
+        // Distancia al cuadrado (más rápido que sqrt)
+        float distSq = dx * dx + dy * dy;
+
+        // Si la distancia es menor a 0.5 unidades (aprox medio metro)
+        if (distSq < (0.5f * 0.5f)) {
+
+            // 2. ¿ES UN PICKUP?
+            // Usamos dynamic_cast para intentar tratarlo como Pickup
+            Pickup* p = dynamic_cast<Pickup*>(s);
+
+            if (p != nullptr) {
+                // ¡Sí es un pickup! Ejecutamos su efecto
+                // Pasamos tus variables de vida y balas por referencia
+                p->onCollect(health, ammo);
+
+                // Opcional: Reproducir sonido
+                // SoundManager::Play("pickup.wav");
+            }
+        }
+    }
+    // ------------------------------------------------------------
+    // 2. ACTUALIZAR SPRITES (Animaciones y Lógica)
+    // ------------------------------------------------------------
+    for (Sprite* s : sprites) {
+        s->update(deltaTime);
     }
 
-    // Limpieza: Eliminar proyectiles inactivos de la memoria
-    // (Esto es una forma moderna de borrar elementos de un vector en C++)
-    projectiles.erase(std::remove_if(projectiles.begin(), projectiles.end(),
-        [](Projectile* p) {
-            if (!p->active) {
-                delete p; // Liberar memoria
-                return true;
-            }
-            return false;
-        }), projectiles.end());
+    // ------------------------------------------------------------
+    // 3. LIMPIEZA DE MEMORIA (Garbage Collection)
+    // ------------------------------------------------------------
+    // Usamos una lógica unificada para borrar balas y enemigos muertos
+
+    cleanDeadEntities(projectiles);
+    cleanDeadEntities(sprites);
 }
 
 void Game::render() {
@@ -255,13 +285,14 @@ void Game::render() {
     // 2. Raycasting (Paredes, Suelo, Techo)
     renderWorld(); // <--- Mueve el bucle gigante FOR x=0... a esta función privada
 
-    // 3. Actualizar Textura SDL
+    // 3. Sprites y Arma
+    renderSprites();
+
+
+    // 4. Actualizar Textura SDL
     SDL_UpdateTexture(screenTexture, NULL, screenBuffer, screenWidth * 4);
 
     SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
-
-    // 4. Sprites y Arma (Encima del buffer)
-    renderSprites();
 
     renderUI();
 
@@ -475,17 +506,14 @@ void Game::renderSprites() {
 
     for (Sprite* s : sprites) {
         if (!s->isDead) { // Solo si está vivo
-            s->draw(renderer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
+            s->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
         }
     }
 
     for (Projectile* p : projectiles) {
         // Usamos la misma función de dibujo que el enemigo
-        p->spriteVis->draw(renderer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
+        p->spriteVis->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
     }
-
-    playerStaff.draw(renderer, screenWidth, screenHeight, deltaTime, playerIsMoving);
-
 }
 
 void Game::renderUI() {
@@ -494,6 +522,8 @@ void Game::renderUI() {
             playerX, playerY, playerAngle, FOV,
             screenWidth, screenHeight, zBuffer);
     }
+
+    currentWeapon->draw(renderer, screenWidth, screenHeight, deltaTime, playerIsMoving);
     if (showUI) {
         // DIBUJAR UI
 
@@ -613,6 +643,13 @@ void Game::loadLevel() {
     for (auto s : sprites) delete s;
     sprites.clear();
 
+    crosshairSurf = Utils::LoadTexture("crosshair.png");
+    crosshairTexture = SDL_CreateTextureFromSurface(renderer, crosshairSurf);
+    crossW = crosshairSurf->w;
+    crossH = crosshairSurf->h;
+    SDL_FreeSurface(crosshairSurf);
+
+    fireballTex = ResourceManager::Get().GetTexture("fireball1.png");
     // Recorremos todo el mapa
     for (int y = 0; y < mapHeight; y++) {
         for (int x = 0; x < mapWidth; x++) {
@@ -621,8 +658,9 @@ void Game::loadLevel() {
 
             // SI ES UN ENEMIGO (Código 9)
             if (cellType == 9) {
+                textureEnemyIdle = ResourceManager::Get().GetTexture("ogre_idle.png");
                 // Crear el sprite en el CENTRO de la celda (x + 0.5f)
-                Sprite* s = new Sprite(x + 0.5f, y + 0.5f, textureEnemyIdle);
+                Sprite* s = new Sprite(x + 0.5f, y + 0.5f, textureEnemyIdle, 1.0f);
 
                 for (auto surf : textureEnemyDie) {
                     s->addDeathFrame(surf);
@@ -630,6 +668,22 @@ void Game::loadLevel() {
                 sprites.push_back(s);
 
                 // IMPORTANTE: Borrar el 9 del mapa para que sea suelo transitable
+                worldMap[y][x] = 0;
+            }
+			if (cellType == 4) { // Health potion
+                SDL_Surface* tex = ResourceManager::Get().GetTexture("health_potion.png");
+                // Creamos un Pickup en lugar de un Sprite normal
+                // Nota: x + 0.5f centra el objeto en el cuadrado
+                Pickup* p = new Pickup(x + 0.5f, y + 0.5f, tex, PICKUP_HEALTH, 25);
+
+                sprites.push_back(p); // Lo guardamos en la misma lista que los enemigos
+                worldMap[y][x] = 0;   // Borramos el número del mapa para que no sea pared
+            }
+			else if (cellType == 5) { // Mana potion
+                SDL_Surface* tex = ResourceManager::Get().GetTexture("mana_potion.png");
+                Pickup* p = new Pickup(x + 0.5f, y + 0.5f, tex, PICKUP_AMMO, 10);
+
+                sprites.push_back(p);
                 worldMap[y][x] = 0;
             }
 
@@ -726,33 +780,64 @@ void Game::DrawMinimap(SDL_Renderer* renderer,
 }
 
 void Game::clean() {
-    // Liberar recursos
+    std::cout << "Iniciando limpieza..." << std::endl;
+
+    // ---------------------------------------------------------
+    // 1. LIMPIAR OBJETOS DEL JUEGO (Lógica)
+    // ---------------------------------------------------------
+    // Primero borramos las entidades que podrían estar usando recursos.
+
+    // Borrar Enemigos y Pickups
+    for (Sprite* s : sprites) {
+        delete s; // Llama al destructor de Sprite
+    }
+    sprites.clear();
+
+    // Borrar Proyectiles
+    for (auto p : projectiles) {
+        delete p;
+    }
+    projectiles.clear();
+
+    // ---------------------------------------------------------
+    // 2. LIMPIAR RECURSOS (Imágenes cargadas)
+    // ---------------------------------------------------------
+    // El Manager se encarga de borrar TODAS las superficies (Suelo, Paredes, Enemigos)
+    // NOTA: Ya no necesitas borrar textureEnemyDie manualmente si usas el Manager.
+    ResourceManager::Get().Clear();
+	playerStaff.clean();
+	handsWeapon.clean();
+	currentWeapon = nullptr;
+
+    // ---------------------------------------------------------
+    // 3. LIMPIAR RECURSOS ESPECÍFICOS DE SDL (Que no están en el Manager)
+    // ---------------------------------------------------------
+
+    // Buffer de Video
     if (screenBuffer) {
         delete[] screenBuffer;
         screenBuffer = nullptr;
     }
+
+    // Texturas de Hardware (UI, Buffer Final)
     if (screenTexture) {
         SDL_DestroyTexture(screenTexture);
         screenTexture = nullptr;
     }
-    if (font != nullptr) {
-        TTF_CloseFont(font);
-        font = nullptr; // Buena práctica: anularlo después de cerrar
-    }
     if (crosshairTexture) {
         SDL_DestroyTexture(crosshairTexture);
+        crosshairTexture = nullptr; // Siempre es bueno anular el puntero
     }
 
-    for (SDL_Surface* surf : textureEnemyDie) {
-        SDL_FreeSurface(surf);
-    }
-    textureEnemyDie.clear();
-
-    if (textureEnemyIdle) {
-        SDL_FreeSurface(textureEnemyIdle);
-        textureEnemyIdle = nullptr;
+    // Fuentes
+    if (font != nullptr) {
+        TTF_CloseFont(font);
+        font = nullptr;
     }
 
+    // ---------------------------------------------------------
+    // 4. DESTRUIR VENTANA Y SISTEMA (Lo último)
+    // ---------------------------------------------------------
     if (renderer) {
         SDL_DestroyRenderer(renderer);
         renderer = nullptr;
@@ -762,12 +847,10 @@ void Game::clean() {
         window = nullptr;
     }
 
-    for (auto p : projectiles) {
-        delete p;
-    }
-
+    // Apagar librerías en orden inverso
     IMG_Quit();
     TTF_Quit();
     SDL_Quit();
+
     std::cout << "Juego cerrado correctamente." << std::endl;
 }
