@@ -7,7 +7,7 @@ Game::Game()
     crosshairTexture(nullptr), textureEnemyIdle(nullptr), screenTexture(nullptr),
     screenBuffer(nullptr), ceilPixels(nullptr), floorW(0), floorH(0), screenWidth(0), screenHeight(0),
 	playerIsMoving(false), deltaTime(0.0f), mouseSensitivity(0.003f), moveSpeed(4.0f), crossH(0), crossW(0), 
-	crosshairSurf(nullptr), fireballTex(nullptr), floorSurface(nullptr), wallPixels(nullptr)
+	crosshairSurf(nullptr), fireballTex(nullptr), floorSurface(nullptr), wallPixels(nullptr), currentWeapon(nullptr), handsSurf(nullptr)
 {
     //Nada
 }
@@ -142,7 +142,7 @@ void Game::handleEvents() {
                     float spawnX = playerX + cosf(playerAngle) * 0.5f;
                     float spawnY = playerY + sinf(playerAngle) * 0.5f;
 
-                    Projectile* p = new Projectile(spawnX, spawnY, playerAngle, fireballTex);
+                    Projectile* p = new Projectile(spawnX, spawnY, playerAngle, fireballTex, false);
                     projectiles.push_back(p);
                     ammo--;
                 }
@@ -213,28 +213,61 @@ void Game::update() {
     for (Projectile* p : projectiles) {
         p->update(deltaTime, mapWidth, mapHeight, worldMap);
 
-        // Si el proyectil chocó contra una pared, ya no buscamos enemigos
+		// chequear colisiones
         if (!p->active) continue;
+        if (p->hostile) {
+            // --- BALA ENEMIGA VS JUGADOR ---
+            // Chequea colisión con el jugador
+            float dx = p->x - playerX;
+            float dy = p->y - playerY;
+            if ((dx * dx + dy * dy) < 0.3f) { // Radio del jugador
+                health -= 10; // Daño de la bala
+                p->active = false;
+                std::cout << "Te dieron! Salud: " << health << std::endl;
+				// Añadir efecto de daño
+            }
+        }
+        else
+        {
+            // Bucle de colisión contra Sprites
+            for (Sprite* s : sprites) {
+                // Ignorar: Muertos o Pickups (Items)
+                // (Asumiendo que agregaste 'virtual bool isPickup()' en Sprite como vimos antes)
+                if (s->isDead || s->isPickup() || s->state == STATE_DEAD) continue;
 
-        // Bucle de colisión contra Sprites
-        for (Sprite* s : sprites) {
-            // Ignorar: Muertos o Pickups (Items)
-            // (Asumiendo que agregaste 'virtual bool isPickup()' en Sprite como vimos antes)
-            if (s->isDead || s->isPickup()) continue;
+                // Distancia simple (Pitágoras sin raiz cuadrada para velocidad)
+                float dx = p->x - s->x;
+                float dy = p->y - s->y;
+                float distSq = dx * dx + dy * dy;
 
-            // Distancia simple (Pitágoras sin raiz cuadrada para velocidad)
-            float dx = p->x - s->x;
-            float dy = p->y - s->y;
-            float distSq = dx * dx + dy * dy;
-
-            // Radio de impacto (0.5f de radio = 0.25f cuadrado)
-            if (distSq < 0.25f) {
-                s->takeDamage(35); // Dañar enemigo
-                p->active = false; // Destruir bala
-                break; // <--- IMPORTANTE: La bala ya chocó, dejar de buscar en otros enemigos
+                // Radio de impacto (0.5f de radio = 0.25f cuadrado)
+                if (distSq < 0.25f) {
+                    s->takeDamage(35); // Dañar enemigo
+                    p->active = false; // Destruir bala
+                    break; // <--- IMPORTANTE: La bala ya chocó, dejar de buscar en otros enemigos
+                }
             }
         }
     }
+    // 2. ACTUALIZAR ENEMIGOS (IA)
+    // Necesitamos la textura de la bola de fuego para los enemigos ranged
+    SDL_Surface* enemyBulletTex = ResourceManager::Get().GetTexture("fireball.png");
+
+    for (Sprite* s : sprites) {
+        // Intentamos convertir el Sprite a Enemy
+        Enemy* enemy = dynamic_cast<Enemy*>(s);
+
+        if (enemy) {
+            // Es un enemigo: Usar IA completa
+            enemy->updateAI(deltaTime, playerX, playerY, health, projectiles, enemyBulletTex, worldMap);
+        }
+    }
+
+    if (health <= 0) {
+        std::cout << "Has muerto..." << std::endl;
+        // Reiniciar juego o mostrar pantalla de muerte
+    }
+
     for (Sprite* s : sprites) {
         // Si ya lo agarramos o está muerto, ignorar
         if (s->isDead) continue;
@@ -301,10 +334,7 @@ void Game::render() {
 }
 
 void Game::renderWorld() {
-    // Aquí va el bucle gigante de Raycasting que tenías en MiniDoom.cpp
-    // Reemplaza SCREEN_WIDTH/HEIGHT por screenWidth/Height
-    // Usa screenBuffer para pintar píxeles
-    // Guarda distancias en zBuffer
+
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
@@ -321,12 +351,11 @@ void Game::renderWorld() {
         float rayDirX = cosf(playerAngle) + cosf(playerAngle + M_PI / 2) * tanf(FOV / 2) * cameraX; // Vector plano cámara simplificado
         float rayDirY = sinf(playerAngle) + sinf(playerAngle + M_PI / 2) * tanf(FOV / 2) * cameraX;
 
-        // Método más simple si usas FOV fijo:
         float rayAngle = (playerAngle - FOV / 2.0f) + ((float)x / (float)screenWidth) * FOV;
         float eyeX = cosf(rayAngle);
         float eyeY = sinf(rayAngle);
 
-        // Posición en el mapa (enteros)
+        // Posición en el mapa
         int mapX = (int)playerX;
         int mapY = (int)playerY;
 
@@ -334,7 +363,7 @@ void Game::renderWorld() {
         float sideDistX, sideDistY;
 
         // Longitud del rayo de un lado x/y al siguiente x/y
-        // Se usa valor absoluto y una guardia para evitar división por cero
+        // Valor absoluto y una guardia para evitar división por cero
         float deltaDistX = (eyeX == 0) ? 1e30 : std::abs(1.0f / eyeX);
         float deltaDistY = (eyeY == 0) ? 1e30 : std::abs(1.0f / eyeY);
 
@@ -343,7 +372,7 @@ void Game::renderWorld() {
         // Dirección de paso y sideDist inicial
         int stepX, stepY;
         int hit = 0;
-        int side; // 0 para NS, 1 para EO
+        int side; // 0 para Norte, Sur, 1 para Este, Oeste
 
         if (eyeX < 0) {
             stepX = -1;
@@ -362,7 +391,7 @@ void Game::renderWorld() {
             sideDistY = (mapY + 1.0f - playerY) * deltaDistY;
         }
 
-        // 2. Ejecutar DDA
+        //DDA
         while (hit == 0) {
             // Saltar al siguiente cuadro del mapa, sea en dirección x o y
             if (sideDistX < sideDistY) {
@@ -387,7 +416,7 @@ void Game::renderWorld() {
             }
         }
 
-        // 3. Calcular distancia corregida (Fisheye fix automático del DDA)
+        // 3. Calcular distancia corregida (Fisheye)
         if (side == 0) perpWallDist = (sideDistX - deltaDistX);
         else           perpWallDist = (sideDistY - deltaDistY);
 
@@ -401,11 +430,11 @@ void Game::renderWorld() {
 
         int texX = (int)(wallX * (float)textureWidth);
 
-        // 3. CORREGIR INVERSIÓN
+        // CORREGIR INVERSIÓN
         if (side == 0 && rayDirX > 0) texX = textureWidth - texX - 1;
         if (side == 1 && rayDirY < 0) texX = textureWidth - texX - 1;
 
-        // 4. Calcular altura de línea
+        // Calcular altura de línea
         int lineHeight = (int)(screenHeight / perpWallDist);
 
         // Calcular start y end de dibujo
@@ -418,7 +447,7 @@ void Game::renderWorld() {
 
         if (drawEnd < 0) drawEnd = screenHeight;
 
-        // --- A. DIBUJAR PAREDES (EN EL BUFFER) ---
+        // --- DIBUJAR PAREDES (BUFFER) ---
         float step = 1.0f * textureHeight / lineHeight;
         float texPos = (drawStartClamped - screenHeight / 2 + lineHeight / 2) * step;
 
@@ -428,17 +457,14 @@ void Game::renderWorld() {
             Uint32 color = wallPixels[texY * wallPitch + texX];
             if (side == 1) color = (color >> 1) & 8355711;
 
-            // IMPORTANTE: Escribir directo en memoria, no usar SDL_RenderDrawPoint
             screenBuffer[y * screenWidth + x] = color;
         }
 
-        // --- B. CÁLCULO DE SUELO Y TECHO ---
+        // --- CÁLCULO DE SUELO Y TECHO ---
 
-        // 1. Coordenadas exactas del suelo al pie de la pared
+        //  Coordenadas exactas del suelo al pie de la pared
         float floorXWall, floorYWall;
 
-        // Dependiendo de la dirección del rayo y lado de impacto, sabemos dónde "toca" el suelo
-        // Usamos 'rayDirX' y 'rayDirY' que calculaste al principio del bucle
         if (side == 0 && rayDirX > 0) {
             floorXWall = mapX;
             floorYWall = mapY + wallX;
@@ -457,17 +483,14 @@ void Game::renderWorld() {
         }
 
         float distWall = perpWallDist;
-        float distPlayer = 0.0f; // Distancia en el centro (jugador)
+        float distPlayer = 0.0f; // Distancia en el centro
 
-        // 2. Bucle desde el pie de la pared hasta el final de la pantalla
+        //  Bucle desde el pie de la pared hasta el final de la pantalla
         for (int y = drawEndClamped + 1; y < screenHeight; y++) {
 
-            // Fórmula mágica de proyección: Convierte píxel Y en distancia Z
             float currentDist = screenHeight / (2.0f * y - screenHeight);
 
             // Interpolación lineal (Weighting)
-            // Cuanto más cerca de la pared, weight se acerca a 1. 
-            // Cuanto más cerca del jugador (abajo pantalla), weight se acerca a 0.
             float weight = (currentDist - distPlayer) / (distWall - distPlayer);
 
             // Coordenada exacta en el mapa para este píxel
@@ -475,19 +498,18 @@ void Game::renderWorld() {
             float currentFloorY = weight * floorYWall + (1.0f - weight) * playerY;
 
             // Convertir a coordenadas de textura
-            // El operador % (módulo) no funciona bien con floats negativos, así que casteamos a int
-            // y aseguramos que sea positivo multiplicando por el tamaño.
             int floorTexX = (int)(currentFloorX * floorW) % floorW;
             int floorTexY = (int)(currentFloorY * floorH) % floorH;
 
             // --- PINTAR SUELO ---
             Uint32 colorFloor = floorPixels[floorTexY * floorW + floorTexX];
-            // Aplicar un poco de sombra por distancia (opcional)
-            // colorFloor = (colorFloor >> 1) & 8355711; 
+            
+            //Sombra por distancia
+            colorFloor = (colorFloor >> 1) & 8355711; 
             screenBuffer[y * screenWidth + x] = colorFloor;
 
-            // --- PINTAR TECHO (SIMETRÍA) ---
-            // El techo es el espejo del suelo. Usamos (SCREEN_HEIGHT - y - 1)
+            // --- PINTAR TECHO ---
+            // El techo es el espejo del suelo (SCREEN_HEIGHT - y - 1)
             int ceilingY = screenHeight - y - 1;
             if (ceilingY >= 0) {
                 Uint32 colorCeil = ceilPixels[floorTexY * ceilW + floorTexX];
@@ -497,7 +519,6 @@ void Game::renderWorld() {
     }
 
     // --- ACTUALIZAR GPU ---
-    // Una vez terminado todo el cálculo, enviamos la imagen completa
     SDL_UpdateTexture(screenTexture, NULL, screenBuffer, screenWidth * sizeof(Uint32));
     SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
 }
@@ -511,12 +532,12 @@ void Game::renderSprites() {
     }
 
     for (Projectile* p : projectiles) {
-        // Usamos la misma función de dibujo que el enemigo
         p->spriteVis->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
     }
 }
 
 void Game::renderUI() {
+	// DIBUJAR MINIMAPA
     if (showMinimap) {
         DrawMinimap(renderer, mapWidth, mapHeight, worldMap,
             playerX, playerY, playerAngle, FOV,
@@ -527,29 +548,28 @@ void Game::renderUI() {
     if (showUI) {
         // DIBUJAR UI
 
-        // A. Barra de vida
+        // Barra de vida
         // Actualizar ancho según vida
         healthBarFront.w = (int)((health / 100.0f) * 200);
 
-        // Dibujar Fondo
+		// Dibujar Fondo Bordo
         SDL_SetRenderDrawColor(renderer, 50, 0, 0, 255);
         SDL_RenderFillRect(renderer, &healthBarBack);
-        // Dibujar Vida Actual
+        // Dibujar Vida Actual Roja 
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         SDL_RenderFillRect(renderer, &healthBarFront);
 
-        // B. Texto de Munición
+        // Texto de Munición
         SDL_Color textColor = { 255, 255, 0 }; // Amarillo
         char ammoBuffer[20];
         sprintf_s(ammoBuffer, "Ammo: %d", ammo);
 
-        // Crear superficie -> Crear textura -> Renderizar
         SDL_Surface* textSurface = TTF_RenderText_Solid(font, ammoBuffer, textColor);
         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 
         int textW = 0, textH = 0;
         SDL_QueryTexture(textTexture, NULL, NULL, &textW, &textH);
-        SDL_Rect textRect = { 700, 550, textW, textH }; // Posición fija (x:20, y:60)
+        SDL_Rect textRect = { 700, 550, textW, textH }; // Abajo a la derecha
 
         SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 
@@ -568,21 +588,20 @@ void Game::renderUI() {
 void Game::checkShooting(Sprite* enemy, float playerX, float playerY, float playerAngle, const std::vector<float>& zBuffer, int SCREEN_WIDTH) {
     if (enemy->isDead) return;
 
-    // 1. Vector hacia el enemigo
+    // Vector hacia el enemigo
     float dx = enemy->x - playerX;
     float dy = enemy->y - playerY;
     float distToEnemy = sqrtf(dx * dx + dy * dy);
 
-    // 2. Calcular ángulo hacia el enemigo
+    // Angulo hacia el enemigo
     float angleToEnemy = atan2f(dy, dx) - playerAngle;
 
-    // Normalizar ángulo (-PI a PI)
+    // Normalizar ángulo
     while (angleToEnemy < -M_PI) angleToEnemy += 2 * M_PI;
     while (angleToEnemy > M_PI) angleToEnemy -= 2 * M_PI;
 
-    // 3. ¿Estamos apuntando al enemigo?
-    // Si el ángulo es muy pequeño (ej. 0.1 radianes), lo tenemos en la mira.
-    // También verificamos que esté cerca (rango del arma).
+    // Si el ángulo es muy pequeño lo tenemos en la mira
+    // También verificamos que esté cerca (rango del arma)
     if (fabs(angleToEnemy) < 0.15f && distToEnemy < 10.0f) {
 
         // 4. Muro en el medio (Oclusión)
@@ -591,7 +610,7 @@ void Game::checkShooting(Sprite* enemy, float playerX, float playerY, float play
         float wallDist = zBuffer[SCREEN_WIDTH / 2];
 
         if (distToEnemy < wallDist) {
-            enemy->takeDamage(50); // ¡PUM! 50 de daño
+			enemy->takeDamage(50); // 50 de daño, TODO: variable arma
         }
     }
 }
@@ -600,7 +619,7 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
     float dx, float dy,
     const int worldMap[mapHeight][mapWidth],
     float playerRadius, float skin) {
-    // 1) mover en X
+    //mover en X
     float nextX = playerX + dx;
     int signX = (dx > 0.0f) ? 1 : -1;
     int testCellX = (int)(nextX + signX * playerRadius);
@@ -619,7 +638,7 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
         }
     }
 
-    // 2) mover en Y
+    // mover en Y
     float nextY = playerY + dy;
     int signY = (dy > 0.0f) ? 1 : -1;
     int testCellY = (int)(nextY + signY * playerRadius);
@@ -639,7 +658,6 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
 }
 
 void Game::loadLevel() {
-    // Primero, limpiamos cualquier sprite viejo (si reinicias nivel)
     for (auto s : sprites) delete s;
     sprites.clear();
 
@@ -656,11 +674,11 @@ void Game::loadLevel() {
 
             int cellType = worldMap[y][x];
 
-            // SI ES UN ENEMIGO (Código 9)
+            // SI ES UN ENEMIGO
             if (cellType == 9) {
                 textureEnemyIdle = ResourceManager::Get().GetTexture("ogre_idle.png");
-                // Crear el sprite en el CENTRO de la celda (x + 0.5f)
-                Sprite* s = new Sprite(x + 0.5f, y + 0.5f, textureEnemyIdle, 1.0f);
+				// Crear el sprite en la celda (x + 0.5f, y + 0.5f) para centrarlo
+                Sprite* s = new Enemy(x + 0.5f, y + 0.5f, textureEnemyIdle, TYPE_RANGED);
 
                 for (auto surf : textureEnemyDie) {
                     s->addDeathFrame(surf);
@@ -687,23 +705,22 @@ void Game::loadLevel() {
                 worldMap[y][x] = 0;
             }
 
-            // SI ES EL JUGADOR (Código 5)
-            else if (cellType == 5) {
+            // SI ES EL JUGADOR
+            else if (cellType == 2) {
                 playerX = x + 0.5f;
                 playerY = y + 0.5f;
                 worldMap[y][x] = 0; // Limpiar celda
             }
 
-            // Puedes añadir más 'else if' para objetos, munición, etc.
         }
     }
 }
 
 void Game::DrawMinimap(SDL_Renderer* renderer,
-    int mapWidth, int mapHeight, int worldMap[][30], // ajusta segundo dim si tu mapa cambia
+	int mapWidth, int mapHeight, int worldMap[][30], // Por ahora ajustar dimensiones manualmente
     float playerX, float playerY,
     float playerAngle,
-    float fov,             // tu FOV en radianes
+    float fov,             // FOV en radianes
     int screenWidth, int screenHeight,
     const std::vector<float>& zBuffer) // opcional si querés pintar alcance de rayos
 {
@@ -783,9 +800,8 @@ void Game::clean() {
     std::cout << "Iniciando limpieza..." << std::endl;
 
     // ---------------------------------------------------------
-    // 1. LIMPIAR OBJETOS DEL JUEGO (Lógica)
+    // LIMPIAR OBJETOS DEL JUEGO
     // ---------------------------------------------------------
-    // Primero borramos las entidades que podrían estar usando recursos.
 
     // Borrar Enemigos y Pickups
     for (Sprite* s : sprites) {
@@ -795,12 +811,12 @@ void Game::clean() {
 
     // Borrar Proyectiles
     for (auto p : projectiles) {
-        delete p;
+		delete p; // Llama al destructor de Projectile
     }
     projectiles.clear();
 
     // ---------------------------------------------------------
-    // 2. LIMPIAR RECURSOS (Imágenes cargadas)
+    // LIMPIAR RECURSOS
     // ---------------------------------------------------------
     // El Manager se encarga de borrar TODAS las superficies (Suelo, Paredes, Enemigos)
     // NOTA: Ya no necesitas borrar textureEnemyDie manualmente si usas el Manager.
@@ -810,7 +826,7 @@ void Game::clean() {
 	currentWeapon = nullptr;
 
     // ---------------------------------------------------------
-    // 3. LIMPIAR RECURSOS ESPECÍFICOS DE SDL (Que no están en el Manager)
+    // LIMPIAR RECURSOS ESPECÍFICOS DE SDL
     // ---------------------------------------------------------
 
     // Buffer de Video
@@ -836,7 +852,7 @@ void Game::clean() {
     }
 
     // ---------------------------------------------------------
-    // 4. DESTRUIR VENTANA Y SISTEMA (Lo último)
+    // DESTRUIR VENTANA Y SISTEMA
     // ---------------------------------------------------------
     if (renderer) {
         SDL_DestroyRenderer(renderer);

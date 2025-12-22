@@ -1,3 +1,4 @@
+#pragma once
 #include "Sprite.h"
 
 struct Projectile
@@ -6,14 +7,14 @@ struct Projectile
     float dx, dy;        // Velocidad (dirección * velocidad)
     float speed = 10.0f; // Velocidad de la bola de fuego
     bool active = true;  // ¿Sigue volando?
-
+    bool hostile; // TRUE = Te daña a ti. FALSE = Daña enemigos.
     // Reutilizamos tu clase Sprite para dibujarlo
     Sprite* spriteVis;
 
-    Projectile(float startX, float startY, float angle, SDL_Surface* texture) {
+    Projectile(float startX, float startY, float angle, SDL_Surface* texture, bool isHostile) {
         x = startX;
         y = startY;
-
+        hostile = isHostile;
         // Calculamos cuánto se mueve en X e Y basándonos en el ángulo
         dx = cosf(angle) * speed;
         dy = sinf(angle) * speed;

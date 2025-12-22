@@ -13,7 +13,7 @@ class Pickup : public Sprite {
 public:
     PickupType type;
     int amount; // Cuánto cura o cuántas balas da
-	float floatingOffset = 0.0f; // Para efecto de flotación
+	float floatingOffset = 0.0f; // Flotación
     // Constructor
     Pickup(float x, float y, SDL_Surface* tex, PickupType t, int val)
         : Sprite(x, y, tex, scale) // Llamamos al constructor del padre
@@ -21,12 +21,8 @@ public:
         type = t;
         amount = val;
 
-        // Ajuste visual: Los items suelen ser más pequeños que los monstruos
-        // Usamos la variable 'scale' que añadimos antes
+		// Los pickups son más pequeños
         scale = 0.4f;
-
-        // Los items a veces flotan un poco más abajo (para que parezcan estar en el suelo)
-        // Puedes ajustar esto en tu Sprite::draw si tienes soporte para vMove
     }
 
     // Sobreescribimos para identificarlo fácil
@@ -37,7 +33,7 @@ public:
         switch (type) {
         case PICKUP_HEALTH:
             playerHP += amount;
-            if (playerHP > 100) playerHP = 100; // Tope de vida
+			if (playerHP > 100) playerHP = 100; // Maximo 100 de vida
             std::cout << "Recogido Botiquin. Vida: " << playerHP << std::endl;
             break;
 
@@ -47,29 +43,19 @@ public:
             break;
         }
 
-        // Marcamos el objeto como "muerto" para que el juego lo borre
+		// Objeto como "muerto" para borrar
         state = STATE_DEAD;
-        isDead = true; // Asumiendo que tienes una flag para borrar
+        isDead = true;
     }
 
     void update(float deltaTime) override {
-        // 1. Llamar al update base (por si añades animaciones de sprites luego)
+		// Llamar al update base para futuras animaciones
         Sprite::update(deltaTime);
-
-        // 2. MAGIA MATEMÁTICA: Onda Senoidal
-        // SDL_GetTicks() * 0.005f -> Controla la VELOCIDAD
-        // * 15.0f -> Controla la ALTURA (Amplitud)
-        
-        // Truco Pro: Sumamos (x + y) * 100 al tiempo.
-        // Esto hace que cada objeto flote en un tiempo distinto (Desfase).
-        // Si no haces esto, todos los objetos del mapa subirán y bajarán perfectamente sincronizados (se ve robótico).
         
         float time = SDL_GetTicks() * 0.003f;
-        float phase = (x + y); // Semilla aleatoria basada en posición
+        float phase = (x + y); // Seed aleatoria basada en posición
         
-        zOffset = sin(time + phase) * 30.0f; 
+		zOffset = sin(time + phase) * 30.0f; // Oscilación vertical
         
-        // Nota: 20.0f es un valor en píxeles de pantalla aproximados. 
-        // Ajústalo si flotan muy alto o muy bajo.
     }
 };

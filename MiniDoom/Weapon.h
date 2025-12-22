@@ -5,7 +5,7 @@
 #include "ResourceManager.h"
 
 struct Weapon {
-    // Usamos SDL_Texture para dibujar, es mucho más rápido que Surface
+    
     SDL_Texture* textureIdle = nullptr;
     SDL_Texture* textureFire = nullptr;
 
@@ -16,7 +16,7 @@ struct Weapon {
 	float wScale = 1.0f;
 	int wOffset = 0.0f;
 
-    // Variables para el efecto "Weapon Bob" (movimiento al caminar)
+    // Variables para el efecto Weapon Bob
     float bobTimer = 0.0f;
 
     // Carga los recursos UNA SOLA VEZ

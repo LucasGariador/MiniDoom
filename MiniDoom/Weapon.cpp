@@ -55,10 +55,10 @@ void Weapon::draw(SDL_Renderer* renderer, int SCREEN_WIDTH, int SCREEN_HEIGHT, f
         bobTimer += deltaTime * 0.1f; // Velocidad del paso
         // Fórmula simple de oscilación
         bobOffsetX = (int)(cos(bobTimer) * 10); // Se mueve izquierda/derecha
-        bobOffsetY = (int)(abs(sin(bobTimer)) * 10); // Se mueve arriba/abajo (semicírculo)
+        bobOffsetY = (int)(abs(sin(bobTimer)) * 10); // Se mueve arriba/abajo
     }
     else {
-        // Resetear suavemente si se detiene
+        // Resetear si se detiene
         bobTimer = 0;
     }
 
@@ -87,7 +87,7 @@ void Weapon::shoot() {
     if (!isFiring) {
         isFiring = true;
         fireTimer = FIRE_DURATION;
-        // Reproducir sonido aquí
+		//Para sonido u otro efecto, agregar aquí
     }
 }
 

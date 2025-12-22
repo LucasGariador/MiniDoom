@@ -3,7 +3,7 @@
 #include <map>
 #include <string>
 #include <iostream>
-#include "Utils.h" // Asumo que aquí tienes tu LoadTexture
+#include "Utils.h"
 
 class ResourceManager {
 public:
@@ -20,7 +20,7 @@ public:
     void Clear();
 
 private:
-    ResourceManager() {} // Constructor privado (nadie puede crear otro manager)
+    ResourceManager() {} // Constructor privado
 
     // El "almacén"
     std::map<std::string, SDL_Surface*> textures;

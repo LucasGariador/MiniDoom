@@ -5,6 +5,7 @@
 
 enum EnemyState {
 	STATE_IDLE,    // Parado / Caminando
+	STATE_ATTACKING, // Atacando
 	STATE_DYING,   // Reproduciendo animación de muerte
 	STATE_DEAD     // Ya murió (se queda en el suelo o desaparece)
 };
