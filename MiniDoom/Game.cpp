@@ -1,13 +1,25 @@
+/**
+ * @class Game
+ * @brief Manages the main application lifecycle, including initialization,
+ * the main loop, rendering, and resource cleanup.
+ * * This class acts as the central engine controller. It initializes the SDL2
+ * subsystems,load assets, handles user input via the Event Manager, and orchestrates the
+ * raycasting rendering pipeline.
+ */
+
+
 #include "Game.h"
 
 Game::Game()
-    : playerX(0), playerY(0), playerAngle(0), FOV(0), // Valores por defecto seguros
+	: playerX(0), playerY(0), playerAngle(0), FOV(0), // Default values, will be set in init()
     isRunning(false), window(nullptr), renderer(nullptr), ceilH(0), ceilW(0),
     wallSurface(nullptr), floorPixels(nullptr), zBuffer(), font(nullptr),
     crosshairTexture(nullptr), textureEnemyIdle(nullptr), screenTexture(nullptr),
     screenBuffer(nullptr), ceilPixels(nullptr), floorW(0), floorH(0), screenWidth(0), screenHeight(0),
 	playerIsMoving(false), deltaTime(0.0f), mouseSensitivity(0.003f), moveSpeed(4.0f), crossH(0), crossW(0), 
-	crosshairSurf(nullptr), fireballTex(nullptr), floorSurface(nullptr), wallPixels(nullptr), currentWeapon(nullptr), handsSurf(nullptr)
+	crosshairSurf(nullptr), fireballTex(nullptr), floorSurface(nullptr), wallPixels(nullptr), currentWeapon(nullptr),
+	handsSurf(nullptr), backgroundTexture(nullptr), playButton(), textRect(0), textures{ nullptr, nullptr, nullptr }, 
+    textTexture(nullptr), wallSurface_2(nullptr), wallSurface_3(nullptr)
 {
     //Nada
 }
@@ -44,11 +56,12 @@ bool Game::init(const char* title, int width, int height) {
         return -1;
     }
 
-    font = TTF_OpenFont("Jacquard12-Regular.ttf", 24);
+    font = TTF_OpenFont("Jacquard12-Regular.ttf", 48);
     if (!font) {
         printf("Error cargando fuente: %s\n", TTF_GetError());
         return -1;
     }
+
 
     //    Crea una ventana con título y tamaño definidos
         window = SDL_CreateWindow(
@@ -79,12 +92,20 @@ bool Game::init(const char* title, int width, int height) {
     screenBuffer = new Uint32[width * height];
     zBuffer.resize(width);
 
+
+	backgroundTexture = Utils::LoadTextSDL("background_menu.png", renderer);
     // Cargar Texturas
-        // Cargar texturas de pared
-    wallSurface = Utils::LoadTexture("wall_bricks_512x512.png"); // Carga una textura de pared desde un archivo
+    // Cargar texturas de pared
+    wallSurface = ResourceManager::Get().GetTexture("wall_bricks_512x512.png"); // Carga una textura de pared desde un archivo
+	textures[0] = (Uint32*)wallSurface->pixels;
+	wallSurface_2 = ResourceManager::Get().GetTexture("wall_bricks_2_512x512.png");
+	textures[1] = (Uint32*)wallSurface_2->pixels;
+	wallSurface_3 = ResourceManager::Get().GetTexture("wall_bricks_3_512x512.png");
+	textures[2] = (Uint32*)wallSurface_3->pixels;
+
     //Suelo
-    SDL_Surface* floorSurf = Utils::LoadTexture("floor_stone_512x512.png");
-    SDL_Surface* ceilSurf = Utils::LoadTexture("floor_stone_512x512.png");
+    SDL_Surface* floorSurf = ResourceManager::Get().GetTexture("floor_stone_512x512.png");
+    SDL_Surface* ceilSurf = ResourceManager::Get().GetTexture("floor_stone_512x512.png");
     floorPixels = (Uint32*)floorSurf->pixels;
     ceilPixels = (Uint32*)ceilSurf->pixels;
     floorW = floorSurf->w;
@@ -108,7 +129,47 @@ bool Game::init(const char* title, int width, int height) {
     textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_die3.png"));
     textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_dead.png"));
 
+    //UI
+    playButton.rect = { 300, 200, 400, 100 };
+    playButton.texture = Utils::LoadTextSDL("button_play.png", renderer);
+    if (playButton.texture == nullptr) {
+        std::cerr << "Error cargando textura del botón: " << SDL_GetError() << std::endl;
+        return false;
+    }
 
+    SDL_Color textColor = { 0, 0, 0, 255 }; // Blanco
+    SDL_Surface* textSurface = TTF_RenderText_Blended(font, "START GAME", textColor);
+    textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    SDL_FreeSurface(textSurface);
+
+    textRect = { 0, 0, 0, 0 };
+
+    SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h);
+
+    // Definir el tamaño del botón basado en el texto + un margen (padding)
+    int padding = 40;
+    playButton.rect.w = textRect.w + padding;
+    playButton.rect.h = textRect.h + padding;
+
+    playButton.rect.w = 400;
+    playButton.rect.h = 100;
+
+    int screenW = 800; // Ajusta a tu ancho de ventana
+    int screenH = 600; // Ajusta a tu alto de ventana
+
+    // Centrado horizontal: (Pantalla / 2) - (Botón / 2)
+    playButton.rect.x = (screenW / 2) - (playButton.rect.w / 2);
+    // Un poco más abajo del centro vertical
+    playButton.rect.y = (screenH / 2) - (playButton.rect.h / 2);
+
+
+    // Centrar el texto automáticamente
+    textRect.x = playButton.rect.x + (playButton.rect.w - textRect.w) / 2;
+    textRect.y = playButton.rect.y + (playButton.rect.h - textRect.h) / 2;
+
+    SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h);
+
+    printf("Texto ahora sí centrado: x=%d, y=%d, w=%d, h=%d\n", textRect.x, textRect.y, textRect.w, textRect.h);
 
     loadLevel();
     isRunning = true;
@@ -117,6 +178,25 @@ bool Game::init(const char* title, int width, int height) {
 }
 
 void Game::handleEvents() {
+    SDL_SetRelativeMouseMode(SDL_FALSE);
+    if(currentState == MAINMENU) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) {
+                isRunning = false;
+            }
+            if (event.type == SDL_MOUSEBUTTONDOWN) {
+                    int x, y;
+                    SDL_GetMouseState(&x, &y);
+                    // Si haces clic en el botón Play
+                    if (x > playButton.rect.x && x < playButton.rect.x + playButton.rect.w &&
+                        y > playButton.rect.y && y < playButton.rect.y + playButton.rect.h) {
+                        currentState = PLAYING;
+                    }
+            }
+        }
+        return; // Salir temprano si estamos en el menú
+	}
 
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
@@ -151,6 +231,15 @@ void Game::handleEvents() {
                 health = std::max(health - 20, 0);
             }
         }
+        if (event.type == SDL_KEYUP) {
+            if (event.key.keysym.sym == SDLK_u)
+            {
+                showUI = !showUI;
+            }
+            else if (event.key.keysym.sym == SDLK_m) {
+                showMinimap = !showMinimap;
+            }
+        }
     }
 
 }
@@ -178,7 +267,6 @@ void Game::update() {
     prevTicks = now;
 
     // Movimiento Jugador (WASD)
-    const Uint8* state = SDL_GetKeyboardState(NULL);
     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
     float moveStep = moveSpeed * deltaTime;
 
@@ -334,45 +422,37 @@ void Game::render() {
 }
 
 void Game::renderWorld() {
-
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // Datos de textura para acceso rápido
     int textureWidth = wallSurface->w;
     int textureHeight = wallSurface->h;
-    Uint32* wallPixels = (Uint32*)wallSurface->pixels;
+
     int wallPitch = wallSurface->pitch / 4;
-    // --- ALGORITMO DDA RAYCASTING ---
+    // --- RAYCASTING ---
     for (int x = 0; x < screenWidth; x++) {
 
-        // 1. Calcular dirección del rayo
-        float cameraX = 2 * x / (float)screenWidth - 1; // Coordenada en espacio de cámara (-1 a 1)
-        float rayDirX = cosf(playerAngle) + cosf(playerAngle + M_PI / 2) * tanf(FOV / 2) * cameraX; // Vector plano cámara simplificado
+        float cameraX = 2 * x / (float)screenWidth - 1;
+        float rayDirX = cosf(playerAngle) + cosf(playerAngle + M_PI / 2) * tanf(FOV / 2) * cameraX;
         float rayDirY = sinf(playerAngle) + sinf(playerAngle + M_PI / 2) * tanf(FOV / 2) * cameraX;
 
         float rayAngle = (playerAngle - FOV / 2.0f) + ((float)x / (float)screenWidth) * FOV;
         float eyeX = cosf(rayAngle);
         float eyeY = sinf(rayAngle);
 
-        // Posición en el mapa
         int mapX = (int)playerX;
         int mapY = (int)playerY;
 
-        // Longitud del rayo desde la posición actual al siguiente lado x o y
         float sideDistX, sideDistY;
 
-        // Longitud del rayo de un lado x/y al siguiente x/y
-        // Valor absoluto y una guardia para evitar división por cero
         float deltaDistX = (eyeX == 0) ? 1e30 : std::abs(1.0f / eyeX);
         float deltaDistY = (eyeY == 0) ? 1e30 : std::abs(1.0f / eyeY);
 
         float perpWallDist;
 
-        // Dirección de paso y sideDist inicial
         int stepX, stepY;
         int hit = 0;
-        int side; // 0 para Norte, Sur, 1 para Este, Oeste
+		int side; // 0 North, South, 1 East, West
 
         if (eyeX < 0) {
             stepX = -1;
@@ -393,7 +473,6 @@ void Game::renderWorld() {
 
         //DDA
         while (hit == 0) {
-            // Saltar al siguiente cuadro del mapa, sea en dirección x o y
             if (sideDistX < sideDistY) {
                 sideDistX += deltaDistX;
                 mapX += stepX;
@@ -405,22 +484,19 @@ void Game::renderWorld() {
                 side = 1;
             }
 
-            // Chequear si el rayo se salió del mapa (EVITA CRASH)
             if (mapX < 0 || mapX >= mapWidth || mapY < 0 || mapY >= mapHeight) {
                 hit = 1;
-                perpWallDist = depth; // Pared lejana falsa
+                perpWallDist = depth;
             }
-            // Chequear si golpeó pared
             else if (worldMap[mapY][mapX] > 0) {
                 hit = 1;
             }
         }
 
-        // 3. Calcular distancia corregida (Fisheye)
+        // 3. Distance for Fisheye
         if (side == 0) perpWallDist = (sideDistX - deltaDistX);
         else           perpWallDist = (sideDistY - deltaDistY);
 
-        // Guardar en ZBuffer para los sprites
         zBuffer[x] = perpWallDist;
 
         float wallX;
@@ -430,39 +506,46 @@ void Game::renderWorld() {
 
         int texX = (int)(wallX * (float)textureWidth);
 
-        // CORREGIR INVERSIÓN
+		// Correct texture orientation for certain sides
         if (side == 0 && rayDirX > 0) texX = textureWidth - texX - 1;
         if (side == 1 && rayDirY < 0) texX = textureWidth - texX - 1;
 
-        // Calcular altura de línea
         int lineHeight = (int)(screenHeight / perpWallDist);
 
-        // Calcular start y end de dibujo
         int drawStart = -lineHeight / 2 + screenHeight / 2;
         int drawEnd = lineHeight / 2 + screenHeight / 2;
 
-        // Clamp para texturizado
         int drawStartClamped = std::max(0, drawStart);
         int drawEndClamped = std::min(screenHeight - 1, drawEnd);
 
         if (drawEnd < 0) drawEnd = screenHeight;
 
-        // --- DIBUJAR PAREDES (BUFFER) ---
+        // --- Draw Walls ---
+        int texNum = worldMap[mapX][mapY] - 1;
+
         float step = 1.0f * textureHeight / lineHeight;
         float texPos = (drawStartClamped - screenHeight / 2 + lineHeight / 2) * step;
+
+        if (texNum < 0) texNum = 0;
+
+        Uint32* currentTexture = textures[texNum];
 
         for (int y = drawStartClamped; y < drawEndClamped; y++) {
             int texY = (int)texPos & (textureHeight - 1);
             texPos += step;
-            Uint32 color = wallPixels[texY * wallPitch + texX];
+
+            int pixelIndex = texY * wallPitch + texX;
+            Uint32 color = 0;
+            if (currentTexture != nullptr) {
+                color = currentTexture[pixelIndex];
+            }
             if (side == 1) color = (color >> 1) & 8355711;
 
             screenBuffer[y * screenWidth + x] = color;
         }
 
-        // --- CÁLCULO DE SUELO Y TECHO ---
+        // --- Floor and ceiling ---
 
-        //  Coordenadas exactas del suelo al pie de la pared
         float floorXWall, floorYWall;
 
         if (side == 0 && rayDirX > 0) {
@@ -483,33 +566,28 @@ void Game::renderWorld() {
         }
 
         float distWall = perpWallDist;
-        float distPlayer = 0.0f; // Distancia en el centro
+        float distPlayer = 0.0f;
 
-        //  Bucle desde el pie de la pared hasta el final de la pantalla
+
         for (int y = drawEndClamped + 1; y < screenHeight; y++) {
 
             float currentDist = screenHeight / (2.0f * y - screenHeight);
 
-            // Interpolación lineal (Weighting)
             float weight = (currentDist - distPlayer) / (distWall - distPlayer);
 
-            // Coordenada exacta en el mapa para este píxel
             float currentFloorX = weight * floorXWall + (1.0f - weight) * playerX;
             float currentFloorY = weight * floorYWall + (1.0f - weight) * playerY;
 
-            // Convertir a coordenadas de textura
             int floorTexX = (int)(currentFloorX * floorW) % floorW;
             int floorTexY = (int)(currentFloorY * floorH) % floorH;
 
-            // --- PINTAR SUELO ---
             Uint32 colorFloor = floorPixels[floorTexY * floorW + floorTexX];
             
-            //Sombra por distancia
+			//Shadow By Distance
             colorFloor = (colorFloor >> 1) & 8355711; 
             screenBuffer[y * screenWidth + x] = colorFloor;
 
-            // --- PINTAR TECHO ---
-            // El techo es el espejo del suelo (SCREEN_HEIGHT - y - 1)
+
             int ceilingY = screenHeight - y - 1;
             if (ceilingY >= 0) {
                 Uint32 colorCeil = ceilPixels[floorTexY * ceilW + floorTexX];
@@ -539,13 +617,13 @@ void Game::renderSprites() {
 void Game::renderUI() {
 	// DIBUJAR MINIMAPA
     if (showMinimap) {
-        DrawMinimap(renderer, mapWidth, mapHeight, worldMap,
+        drawMinimap(renderer, mapWidth, mapHeight, worldMap,
             playerX, playerY, playerAngle, FOV,
             screenWidth, screenHeight, zBuffer);
     }
 
     currentWeapon->draw(renderer, screenWidth, screenHeight, deltaTime, playerIsMoving);
-    if (showUI) {
+	if (showUI && currentState == GameState::PLAYING) {
         // DIBUJAR UI
 
         // Barra de vida
@@ -575,14 +653,37 @@ void Game::renderUI() {
 
         SDL_FreeSurface(textSurface);
         SDL_DestroyTexture(textTexture);
-    }
-    SDL_Rect crossRect;
-    crossRect.x = (screenWidth - crossW) / 2;
-    crossRect.y = (screenHeight - crossH) / 2;
-    crossRect.w = crossW;
-    crossRect.h = crossH;
 
-    SDL_RenderCopy(renderer, crosshairTexture, NULL, &crossRect);
+		//CENTRAR CROSSHAIR
+        SDL_Rect crossRect;
+        crossRect.x = (screenWidth - crossW) / 2;
+        crossRect.y = (screenHeight - crossH) / 2;
+        crossRect.w = crossW;
+        crossRect.h = crossH;
+
+        SDL_RenderCopy(renderer, crosshairTexture, NULL, &crossRect);
+    }
+    else if (currentState == GameState::MAINMENU) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Fondo negro
+        SDL_RenderClear(renderer);
+
+        // Dibujar fondo
+        SDL_RenderCopy(renderer, backgroundTexture, NULL, NULL);
+
+        // Dibujar botón (el cuadro)
+		if (playButton.texture)
+        SDL_RenderCopy(renderer, playButton.texture, NULL, &playButton.rect);
+        else
+            printf("Error: playbutton es NULL\n");
+
+        // Dibujar texto (encima)
+		if (textTexture)
+        SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+        else
+            printf("Error: textTexture es NULL\n");
+
+        SDL_RenderPresent(renderer);
+    }
 }
 
 void Game::checkShooting(Sprite* enemy, float playerX, float playerY, float playerAngle, const std::vector<float>& zBuffer, int SCREEN_WIDTH) {
@@ -706,7 +807,7 @@ void Game::loadLevel() {
             }
 
             // SI ES EL JUGADOR
-            else if (cellType == 2) {
+            else if (cellType == 7) {
                 playerX = x + 0.5f;
                 playerY = y + 0.5f;
                 worldMap[y][x] = 0; // Limpiar celda
@@ -716,7 +817,7 @@ void Game::loadLevel() {
     }
 }
 
-void Game::DrawMinimap(SDL_Renderer* renderer,
+void Game::drawMinimap(SDL_Renderer* renderer,
 	int mapWidth, int mapHeight, int worldMap[][30], // Por ahora ajustar dimensiones manualmente
     float playerX, float playerY,
     float playerAngle,

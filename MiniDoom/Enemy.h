@@ -22,8 +22,6 @@ public:
 	bool hasSeenThePlayer = false;
 	bool canSeePlayer = false;
 
-    // Animación de ataque (Opcional, si tienes los sprites)
-    // std::vector<SDL_Surface*> animAttack; 
 
     Enemy(float x, float y, SDL_Surface* tex, EnemyType t) : Sprite(x, y, tex, 1.0f) {
         type = t;

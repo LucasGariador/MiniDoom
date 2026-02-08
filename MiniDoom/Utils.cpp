@@ -28,3 +28,15 @@
 
         return optimizedSurface;
     }
+
+    SDL_Texture* Utils::LoadTextSDL(const char* path, SDL_Renderer* renderer) {
+        SDL_Surface* surface = LoadTexture(path);
+        if (!surface) return nullptr;
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_FreeSurface(surface);
+        if (!texture) {
+            std::cerr << "Error creando textura desde superficie: " << SDL_GetError() << std::endl;
+            return nullptr;
+        }
+        return texture;
+	}

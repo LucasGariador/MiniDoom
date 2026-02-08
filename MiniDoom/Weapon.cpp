@@ -40,8 +40,7 @@ void Weapon::draw(SDL_Renderer* renderer, int SCREEN_WIDTH, int SCREEN_HEIGHT, f
     SDL_QueryTexture(currentTex, NULL, NULL, &texW, &texH);
 
 
-    float scale = wScale;
-    int drawH = (int)(SCREEN_HEIGHT * scale);
+    int drawH = (int)(SCREEN_HEIGHT * wScale);
 
     // Mantener el aspecto
     float aspect = (float)texW / (float)texH;

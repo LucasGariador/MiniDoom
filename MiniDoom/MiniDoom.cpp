@@ -10,9 +10,16 @@ int main(int argc, char* argv[]) {
 
     // 2. Bucle
     while (game.running()) {
-        game.handleEvents();
-        game.update();
-        game.render();
+
+        if(game.currentState == Game::GameState::MAINMENU) {
+			game.handleEvents();
+			game.render();
+		}
+        if (game.currentState == Game::GameState::PLAYING) {
+            game.handleEvents();
+            game.update();
+            game.render();
+        }
     }
 
     // 3. Limpiar
