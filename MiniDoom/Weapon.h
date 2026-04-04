@@ -15,6 +15,7 @@ struct Weapon {
 	bool hasWeponBob = true;
 	float wScale = 1.0f;
 	int wOffset = 0.0f;
+    int texW, texH;
 
     // Variables para el efecto Weapon Bob
     float bobTimer = 0.0f;

@@ -1,11 +1,11 @@
 #pragma once
 #include "Sprite.h"
-#include <vector> // Necesario para std::vector
+#include <vector>
 #include "Game.h"
 
 enum EnemyType {
-    TYPE_MELEE,  // Zombie básico
-    TYPE_RANGED, // Soldado con arma
+    TYPE_MELEE,  // Zombie
+    TYPE_RANGED, // Soldado
     TYPE_BOSS    // Cyberdemon
 };
 struct Projectile;
@@ -21,13 +21,18 @@ public:
 	int mapHeight;
 	bool hasSeenThePlayer = false;
 	bool canSeePlayer = false;
-
+    float lastKnownX = 0.0f;
+    float lastKnownY = 0.0f;
+    bool hasDealtDamage = false;
+    const float MELEE_RANGE = 1.5f; // A un metro y medio de distancia (cuerpo a cuerpo)
+    const float RANGED_RANGE = 8.0f; // A 8 metros de distancia (disparo)
+    std::vector<SDL_Surface*> animAttack; // AquÃ­ guardarÃ¡s las imÃ¡genes del ataque
 
     Enemy(float x, float y, SDL_Surface* tex, EnemyType t) : Sprite(x, y, tex, 1.0f) {
         type = t;
         attackTimer = 0.0f;
-
-        // Configurar stats según el tipo
+        defaultSurf = tex;
+        // Configurar stats segï¿½n el tipo
         switch (type) {
         case TYPE_MELEE:
             hp = 50;
@@ -58,8 +63,9 @@ public:
         }
     }
 
-    // Necesitaremos acceso a la lista de proyectiles para disparar
-    void updateAI(float deltaTime, float playerX, float playerY, int& playerHP, std::vector<Projectile*>& projectiles, SDL_Surface* bulletTex, const int worldMap[30][30]);
+    void updateAI(float deltaTime, float playerX, float playerY, int& playerHP, std::vector<Projectile*>& projectiles, SDL_Surface* bulletTex, const int worldMap[6][7]);
 
-    bool CheckLineOfSight(float x1, float y1, float x2, float y2, const int worldMap[30][30]);
+    bool CheckLineOfSight(float x1, float y1, float x2, float y2, const int worldMap[6][7]);
+
+    void addAttackFrame(SDL_Surface* surf);
 };

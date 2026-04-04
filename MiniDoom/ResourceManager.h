@@ -7,7 +7,7 @@
 
 class ResourceManager {
 public:
-    // Singleton: Para poder acceder a él desde cualquier lado (Game, Sprite, etc.)
+    // Singleton: Para poder acceder a ï¿½l desde cualquier lado (Game, Sprite, etc.)
     static ResourceManager& Get() {
         static ResourceManager instance;
         return instance;
@@ -22,6 +22,5 @@ public:
 private:
     ResourceManager() {} // Constructor privado
 
-    // El "almacén"
     std::map<std::string, SDL_Surface*> textures;
 };

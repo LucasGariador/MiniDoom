@@ -11,13 +11,14 @@ Sprite::Sprite(float px, float py, SDL_Surface* initialTexture, float sc)
     animFrame = 0;
     animTimer = 0.0f;
     animSpeed = 0.15f; // Cambia de imagen cada 0.15 segundos
+    defaultSurf = currentSurf;
 }
 
 Sprite::~Sprite()
 {
 }
 
-void Sprite::draw(Uint32* screenBuffer, // <--- CAMBIO 1: Escribimos en memoria, no en renderer
+void Sprite::draw(Uint32* screenBuffer,
     const std::vector<float>& zBuffer,
     int SCREEN_WIDTH, int SCREEN_HEIGHT,
     float playerX, float playerY,
@@ -40,13 +41,10 @@ void Sprite::draw(Uint32* screenBuffer, // <--- CAMBIO 1: Escribimos en memoria,
     const int textureWidth = currentSurf->w;
     const int textureHeight = currentSurf->h;
 
-    // 1. Posición Relativa
     const float dx = x - playerX;
     const float dy = y - playerY;
 
-    // 2. Transformación con Matriz
-    // Esto es más estable que atan2 para sprites, pero tu método atan2 también funciona.
-    // Usaremos tu lógica de atan2 para no confundirte, pero corregida para la escala.
+
 
     const float distance = sqrtf(dx * dx + dy * dy);
     if (distance < 0.1f) return;
@@ -58,24 +56,20 @@ void Sprite::draw(Uint32* screenBuffer, // <--- CAMBIO 1: Escribimos en memoria,
     const float perpDist = distance * cosf(spriteAngle);
     if (perpDist <= 0.1f) return;
 
-    // 3. Calcular Dimensiones en Pantalla
+
     const float halfW = SCREEN_WIDTH * 0.5f;
     const float halfH = SCREEN_HEIGHT * 0.5f;
 
     const float projX = halfW * (1.0f + tanf(spriteAngle) / tanf(FOV * 0.5f));
 
-    // --- AQUI APLICAMOS LA ESCALA (CAMBIO 2) ---
-    // Multiplicamos por 'this->scale'
     const int spriteScreenH = abs((int)(SCREEN_HEIGHT / perpDist)) * scale;
     const int spriteScreenW = abs((int)((float)spriteScreenH * (float)textureWidth / (float)textureHeight));
 
-    // 4. Calcular límites de dibujo
     int drawStartX = (int)(projX - spriteScreenW / 2);
     int drawEndX = (int)(projX + spriteScreenW / 2);
 
 
-    // Si quieres que los enemigos pisen el suelo (no floten al escalar):
-    int vMoveScreen = (int)(zOffset / perpDist); // Puedes ajustar este 0.0f
+    int vMoveScreen = (int)(zOffset / perpDist);
 
     int drawStartY = (int)(halfH - spriteScreenH / 2) + vMoveScreen; // <--- SUMAR AQUÍ
     int drawEndY = (int)(halfH + spriteScreenH / 2) + vMoveScreen;   // <--- SUMAR AQUÍ
@@ -84,7 +78,7 @@ void Sprite::draw(Uint32* screenBuffer, // <--- CAMBIO 1: Escribimos en memoria,
 
     if (drawStartX >= SCREEN_WIDTH || drawEndX < 0 || drawStartY >= SCREEN_HEIGHT || drawEndY < 0) return;
 
-    // 5. Setup de Textura
+
     int loopStartX = drawStartX;
     if (loopStartX < 0) loopStartX = 0;
     int loopEndX = drawEndX;
@@ -103,7 +97,7 @@ void Sprite::draw(Uint32* screenBuffer, // <--- CAMBIO 1: Escribimos en memoria,
     float stepY = (float)textureHeight / (float)spriteScreenH;
 
     float texPosX = (loopStartX - (projX - spriteScreenW / 2)) * stepX;
-    // 6. Bucle de Renderizado (OPTIMIZADO)
+    
     for (int x = loopStartX; x <= loopEndX; ++x) {
 
         // Z-Buffer Check: ¿Está el sprite delante de la pared?
@@ -128,8 +122,30 @@ void Sprite::draw(Uint32* screenBuffer, // <--- CAMBIO 1: Escribimos en memoria,
                     // Transparencia: Chequear Canal Alpha (Byte más alto)
                     // Si el color es 0x00RRGGBB, es transparente.
                     if ((color >> 24) != 0) {
-                        // CAMBIO 3: Escribir directo al buffer
-                        // Esto es 100 veces más rápido que SDL_RenderDrawPoint
+                        // --- INICIO DE DEBUG VISUAL ---
+    // 1. Extraemos los canales originales del píxel (Asumiendo formato ARGB)
+    Uint8 a = (color >> 24) & 0xFF;
+    Uint8 r = (color >> 16) & 0xFF;
+    Uint8 g = (color >> 8)  & 0xFF;
+    Uint8 b = color         & 0xFF;
+
+    // 2. Aplicamos el tinte según el estado
+    if (state == STATE_WALKING) {
+        // Tinte ROJO
+        r = 255; g = g / 2; b = b / 2; 
+    } 
+    else if (state == STATE_IDLE) {
+        // Tinte VERDE
+        g = 255; r = r / 2; b = b / 2; 
+    }
+    else if (state == STATE_ATTACKING) {
+        // Tinte AZUL
+        b = 255; r = r / 2; g = g / 2; 
+    }
+
+    // 3. Reensamblamos el píxel modificado
+    color = (a << 24) | (r << 16) | (g << 8) | b;
+    // --- FIN DE DEBUG VISUAL ---
                         screenBuffer[y * SCREEN_WIDTH + x] = color;
                     }
                 }
@@ -160,8 +176,6 @@ void Sprite::update(float deltaTime) {
                 state = STATE_DEAD;
                 // Dejamos la última imagen (el cadáver en el suelo)
                 currentSurf = animDeath.back();
-
-                // Opcional: Hacerlo no colisionable (atravesable)
             }
         }
     }

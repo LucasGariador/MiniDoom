@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
 
     // 2. Bucle
     while (game.running()) {
-
+        std::cout << "--- TODO CARGADO. INICIANDO GAME LOOP ---" << std::endl;
         if(game.currentState == Game::GameState::MAINMENU) {
 			game.handleEvents();
 			game.render();

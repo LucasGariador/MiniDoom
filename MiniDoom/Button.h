@@ -1,9 +1,9 @@
-#include <SDL.h>
 #pragma once
 
+#include <SDL.h>
 struct Button {
     SDL_Rect rect;
     SDL_Texture* texture;
-    // Puedes añadir un color para el efecto 'hover'
+    // hover
     SDL_Color color;
 };

@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "Compilar MiniDoom (C++ con SDL2)",
+            "command": "g++",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                // Aquí sí va el *.cpp porque le decimos QUÉ compilar
+                "/home/lucas/Proyectos/MiniDoom/MiniDoom/*.cpp", 
+                "-o",
+                "/home/lucas/Proyectos/MiniDoom/MiniDoom_exec",
+                "-I/usr/include/SDL2",
+                "-D_REENTRANT",
+                "-lSDL2",
+                "-lSDL2_image",
+                "-lSDL2_ttf"
+            ],
+            "options": {
+                // Aquí va SOLO la ruta de la carpeta base
+                "cwd": "/home/lucas/Proyectos/MiniDoom" 
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Compilación completa con librerías extra"
+        }
+    ]
+}

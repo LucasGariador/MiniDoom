@@ -18,14 +18,13 @@ Game::Game()
     screenBuffer(nullptr), ceilPixels(nullptr), floorW(0), floorH(0), screenWidth(0), screenHeight(0),
 	playerIsMoving(false), deltaTime(0.0f), mouseSensitivity(0.003f), moveSpeed(4.0f), crossH(0), crossW(0), 
 	crosshairSurf(nullptr), fireballTex(nullptr), floorSurface(nullptr), wallPixels(nullptr), currentWeapon(nullptr),
-	handsSurf(nullptr), backgroundTexture(nullptr), playButton(), textRect(0), textures{ nullptr, nullptr, nullptr }, 
+	handsSurf(nullptr), backgroundTexture(nullptr), playButton(), textRect{}, textures{ nullptr, nullptr, nullptr }, 
     textTexture(nullptr), wallSurface_2(nullptr), wallSurface_3(nullptr)
 {
     //Nada
 }
 
 Game::~Game() {
-    // Simplemente llamamos a clean
 //    clean();
 }
 
@@ -33,8 +32,8 @@ bool Game::init(const char* title, int width, int height) {
     screenWidth = width;
     screenHeight = height;
 
-    playerX = 2.5f;            // Posición inicial X (mitad de la celda 3)
-    playerY = 7.5f;            // Posición inicial Y
+    playerX = 2.5f;            // Posiciï¿½n inicial X (mitad de la celda 3)
+    playerY = 7.5f;            // Posiciï¿½n inicial Y
 	playerAngle = 0.0f; //ARRIBA(Norte) 3 * M_PI / 2 // Derecha(Este) 0 // Abajo(Sur) M_PI / 2 // Izquierda(Oeste) M_PI
 
     FOV = 60.0f * (M_PI / 180.0f); // 60 grados convertidos a radianes
@@ -56,14 +55,14 @@ bool Game::init(const char* title, int width, int height) {
         return -1;
     }
 
-    font = TTF_OpenFont("Jacquard12-Regular.ttf", 48);
+    font = TTF_OpenFont("Assets/Fonts/Jacquard12-Regular.ttf", 48);
     if (!font) {
         printf("Error cargando fuente: %s\n", TTF_GetError());
         return -1;
     }
 
 
-    //    Crea una ventana con título y tamaño definidos
+    //    Crea una ventana con titulo y tamano definidos
         window = SDL_CreateWindow(
             "MiniDoom - Base",
             SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
@@ -93,19 +92,19 @@ bool Game::init(const char* title, int width, int height) {
     zBuffer.resize(width);
 
 
-	backgroundTexture = Utils::LoadTextSDL("background_menu.png", renderer);
+	backgroundTexture = Utils::LoadTextSDL("Assets/Sprites/UI/background_menu.png", renderer);
     // Cargar Texturas
     // Cargar texturas de pared
-    wallSurface = ResourceManager::Get().GetTexture("wall_bricks_512x512.png"); // Carga una textura de pared desde un archivo
+    wallSurface = ResourceManager::Get().GetTexture("Assets/Textures/wall_futuristic_512x512.png"); // Carga una textura de pared desde un archivo
 	textures[0] = (Uint32*)wallSurface->pixels;
-	wallSurface_2 = ResourceManager::Get().GetTexture("wall_bricks_2_512x512.png");
+	wallSurface_2 = ResourceManager::Get().GetTexture("Assets/Textures/wall_futuristic_512x512.png");
 	textures[1] = (Uint32*)wallSurface_2->pixels;
-	wallSurface_3 = ResourceManager::Get().GetTexture("wall_bricks_3_512x512.png");
+	wallSurface_3 = ResourceManager::Get().GetTexture("Assets/Textures/wall_metal_512x512.png");
 	textures[2] = (Uint32*)wallSurface_3->pixels;
 
     //Suelo
-    SDL_Surface* floorSurf = ResourceManager::Get().GetTexture("floor_stone_512x512.png");
-    SDL_Surface* ceilSurf = ResourceManager::Get().GetTexture("floor_stone_512x512.png");
+    SDL_Surface* floorSurf = ResourceManager::Get().GetTexture("Assets/Textures/floor_512x512.png");
+    SDL_Surface* ceilSurf = ResourceManager::Get().GetTexture("Assets/Textures/metal_23-512x512.png");
     floorPixels = (Uint32*)floorSurf->pixels;
     ceilPixels = (Uint32*)ceilSurf->pixels;
     floorW = floorSurf->w;
@@ -116,24 +115,31 @@ bool Game::init(const char* title, int width, int height) {
     //cargar textura de sprite
     //Weapon 
     
-    playerStaff.init(renderer, "weapon_staff_idle.png", "staff_fire.png", true, 1.0f, 50);
+    playerStaff.init(renderer, "Assets/Sprites/Player/weapon_staff_idle.png", "Assets/Sprites/Player/staff_fire.png", true, .8f, 0);
 
-	handsWeapon.init(renderer, "hands.png", "hands.png", false, 0.482f, 0);
-
-	currentWeapon = &handsWeapon; // hands por defecto
+	currentWeapon = &playerStaff;
  
 	//Enemys
     textureEnemyDie.clear(); // Por seguridad
-    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_die1.png"));
-    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_die2.png"));
-    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_die3.png"));
-    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("ogre_dead.png"));
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/ogre_die1.png"));
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/ogre_die2.png"));
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/ogre_die3.png"));
+    textureEnemyDie.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/ogre_dead.png"));
+
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_01.png"));
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_02.png"));
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_03.png"));
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_04.png"));
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_05.png"));
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_06.png"));
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_07.png"));
+    textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_08.png"));
 
     //UI
     playButton.rect = { 300, 200, 400, 100 };
-    playButton.texture = Utils::LoadTextSDL("button_play.png", renderer);
+    playButton.texture = Utils::LoadTextSDL("Assets/Sprites/UI/button_play.png", renderer);
     if (playButton.texture == nullptr) {
-        std::cerr << "Error cargando textura del botón: " << SDL_GetError() << std::endl;
+        std::cerr << "Error cargando textura del botï¿½n: " << SDL_GetError() << std::endl;
         return false;
     }
 
@@ -146,7 +152,7 @@ bool Game::init(const char* title, int width, int height) {
 
     SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h);
 
-    // Definir el tamaño del botón basado en el texto + un margen (padding)
+    // Definir el tamaï¿½o del botï¿½n basado en el texto + un margen (padding)
     int padding = 40;
     playButton.rect.w = textRect.w + padding;
     playButton.rect.h = textRect.h + padding;
@@ -157,21 +163,20 @@ bool Game::init(const char* title, int width, int height) {
     int screenW = 800; // Ajusta a tu ancho de ventana
     int screenH = 600; // Ajusta a tu alto de ventana
 
-    // Centrado horizontal: (Pantalla / 2) - (Botón / 2)
+    // Centrado horizontal: (Pantalla / 2) - (Botï¿½n / 2)
     playButton.rect.x = (screenW / 2) - (playButton.rect.w / 2);
-    // Un poco más abajo del centro vertical
+    // Un poco mï¿½s abajo del centro vertical
     playButton.rect.y = (screenH / 2) - (playButton.rect.h / 2);
 
 
-    // Centrar el texto automáticamente
+    // Centrar el texto automï¿½ticamente
     textRect.x = playButton.rect.x + (playButton.rect.w - textRect.w) / 2;
     textRect.y = playButton.rect.y + (playButton.rect.h - textRect.h) / 2;
 
     SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h);
 
-    printf("Texto ahora sí centrado: x=%d, y=%d, w=%d, h=%d\n", textRect.x, textRect.y, textRect.w, textRect.h);
-
     loadLevel();
+    std::cout << "--- TODO CARGADO. INICIANDO GAME LOOP ---" << std::endl;
     isRunning = true;
 
     return true;
@@ -188,14 +193,14 @@ void Game::handleEvents() {
             if (event.type == SDL_MOUSEBUTTONDOWN) {
                     int x, y;
                     SDL_GetMouseState(&x, &y);
-                    // Si haces clic en el botón Play
+                    // Si haces clic en el botï¿½n Play
                     if (x > playButton.rect.x && x < playButton.rect.x + playButton.rect.w &&
                         y > playButton.rect.y && y < playButton.rect.y + playButton.rect.h) {
                         currentState = PLAYING;
                     }
             }
         }
-        return; // Salir temprano si estamos en el menú
+        return; // Salir temprano si estamos en el menï¿½
 	}
 
     SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -209,7 +214,6 @@ void Game::handleEvents() {
         // Disparos y Mouse Look
         if (event.type == SDL_MOUSEMOTION) {
             playerAngle += event.motion.xrel * mouseSensitivity;
-            // Normalización segura del ángulo
             if (playerAngle < 0) playerAngle += 2 * M_PI;
             if (playerAngle > 2 * M_PI) playerAngle -= 2 * M_PI;
         }
@@ -217,8 +221,7 @@ void Game::handleEvents() {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 if (ammo > 0) {
 					currentWeapon -> shoot();
-                    // CREAR PROYECTIL
-                    // Lo movemos un poquito adelante del jugador (0.5f) para que no nazca dentro de el
+                    
                     float spawnX = playerX + cosf(playerAngle) * 0.5f;
                     float spawnY = playerY + sinf(playerAngle) * 0.5f;
 
@@ -260,7 +263,7 @@ void Game::cleanDeadEntities(std::vector<T*>& list) {
 }
 
 void Game::update() {
-    // Calcular DeltaTime (puedes hacer variables miembros currentTick y lastTick)
+    // Calcular DeltaTime 
     static Uint32 prevTicks = SDL_GetTicks();
     Uint32 now = SDL_GetTicks();
     deltaTime = (now - prevTicks) / 1000.0f;
@@ -270,7 +273,7 @@ void Game::update() {
     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
     float moveStep = moveSpeed * deltaTime;
 
-    // Cálculo de vectores de movimiento (optimizamos calculando seno/coseno una sola vez)
+    // Cï¿½lculo de vectores de movimiento (optimizamos calculando seno/coseno una sola vez)
     float cosA = cosf(playerAngle);
     float sinA = sinf(playerAngle);
 
@@ -282,7 +285,7 @@ void Game::update() {
     if (currentKeyStates[SDL_SCANCODE_A]) MoveWithCollision(playerX, playerY, sinA * moveStep, -cosA * moveStep, worldMap, playerRadius, skin);
 
     if (currentKeyStates[SDL_SCANCODE_1]) {
-        currentWeapon = &handsWeapon;
+        currentWeapon = &playerStaff;
     }
     if (currentKeyStates[SDL_SCANCODE_2]) {
         currentWeapon = &playerStaff;
@@ -305,41 +308,40 @@ void Game::update() {
         if (!p->active) continue;
         if (p->hostile) {
             // --- BALA ENEMIGA VS JUGADOR ---
-            // Chequea colisión con el jugador
+            // Chequea colision con el jugador
             float dx = p->x - playerX;
             float dy = p->y - playerY;
             if ((dx * dx + dy * dy) < 0.3f) { // Radio del jugador
-                health -= 10; // Daño de la bala
+                health -= 10; // Daï¿½o de la bala
                 p->active = false;
                 std::cout << "Te dieron! Salud: " << health << std::endl;
-				// Añadir efecto de daño
+				// Aï¿½adir efecto de daï¿½o
             }
         }
         else
         {
-            // Bucle de colisión contra Sprites
+            // Bucle de colision contra Sprites
             for (Sprite* s : sprites) {
                 // Ignorar: Muertos o Pickups (Items)
-                // (Asumiendo que agregaste 'virtual bool isPickup()' en Sprite como vimos antes)
                 if (s->isDead || s->isPickup() || s->state == STATE_DEAD) continue;
 
-                // Distancia simple (Pitágoras sin raiz cuadrada para velocidad)
+                // Distancia simple (Pitagoras sin raiz cuadrada para velocidad)
                 float dx = p->x - s->x;
                 float dy = p->y - s->y;
                 float distSq = dx * dx + dy * dy;
 
                 // Radio de impacto (0.5f de radio = 0.25f cuadrado)
                 if (distSq < 0.25f) {
-                    s->takeDamage(35); // Dañar enemigo
+                    s->takeDamage(35); // Daï¿½ar enemigo
                     p->active = false; // Destruir bala
-                    break; // <--- IMPORTANTE: La bala ya chocó, dejar de buscar en otros enemigos
+                    break;
                 }
             }
         }
     }
     // 2. ACTUALIZAR ENEMIGOS (IA)
     // Necesitamos la textura de la bola de fuego para los enemigos ranged
-    SDL_Surface* enemyBulletTex = ResourceManager::Get().GetTexture("fireball.png");
+    SDL_Surface* enemyBulletTex = ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/fireball.png");
 
     for (Sprite* s : sprites) {
         // Intentamos convertir el Sprite a Enemy
@@ -357,24 +359,24 @@ void Game::update() {
     }
 
     for (Sprite* s : sprites) {
-        // Si ya lo agarramos o está muerto, ignorar
+        // Si ya lo agarramos o estï¿½ muerto, ignorar
         if (s->isDead) continue;
 
-        // 1. CHEQUEO DE DISTANCIA (Colisión circular)
+        // 1. CHEQUEO DE DISTANCIA (Colisiï¿½n circular)
         float dx = s->x - playerX;
         float dy = s->y - playerY;
-        // Distancia al cuadrado (más rápido que sqrt)
+        // Distancia al cuadrado (mï¿½s rï¿½pido que sqrt)
         float distSq = dx * dx + dy * dy;
 
         // Si la distancia es menor a 0.5 unidades (aprox medio metro)
         if (distSq < (0.5f * 0.5f)) {
 
-            // 2. ¿ES UN PICKUP?
+            // 2. ï¿½ES UN PICKUP?
             // Usamos dynamic_cast para intentar tratarlo como Pickup
             Pickup* p = dynamic_cast<Pickup*>(s);
 
             if (p != nullptr) {
-                // ¡Sí es un pickup! Ejecutamos su efecto
+                // ï¿½Sï¿½ es un pickup! Ejecutamos su efecto
                 // Pasamos tus variables de vida y balas por referencia
                 p->onCollect(health, ammo);
 
@@ -384,7 +386,7 @@ void Game::update() {
         }
     }
     // ------------------------------------------------------------
-    // 2. ACTUALIZAR SPRITES (Animaciones y Lógica)
+    // 2. ACTUALIZAR SPRITES (Animaciones y Lï¿½gica)
     // ------------------------------------------------------------
     for (Sprite* s : sprites) {
         s->update(deltaTime);
@@ -393,7 +395,7 @@ void Game::update() {
     // ------------------------------------------------------------
     // 3. LIMPIEZA DE MEMORIA (Garbage Collection)
     // ------------------------------------------------------------
-    // Usamos una lógica unificada para borrar balas y enemigos muertos
+    // Usamos una lï¿½gica unificada para borrar balas y enemigos muertos
 
     cleanDeadEntities(projectiles);
     cleanDeadEntities(sprites);
@@ -404,7 +406,7 @@ void Game::render() {
     memset(screenBuffer, 0, screenWidth * screenHeight * 4);
 
     // 2. Raycasting (Paredes, Suelo, Techo)
-    renderWorld(); // <--- Mueve el bucle gigante FOR x=0... a esta función privada
+    renderWorld();
 
     // 3. Sprites y Arma
     renderSprites();
@@ -602,15 +604,36 @@ void Game::renderWorld() {
 }
 
 void Game::renderSprites() {
+    // 1. Crear una lista unificada temporal solo para el renderizado
+    std::vector<Sprite*> spritesToRender;
 
+    // Recolectamos los sprites normales que sigan vivos
     for (Sprite* s : sprites) {
-        if (!s->isDead) { // Solo si está vivo
-            s->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
+        if (!s->isDead) {
+            spritesToRender.push_back(s);
         }
     }
 
+    // Recolectamos la parte visual de los proyectiles
     for (Projectile* p : projectiles) {
-        p->spriteVis->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
+        // Asumiendo que p->spriteVis es un puntero a Sprite
+        spritesToRender.push_back(p->spriteVis);
+    }
+
+    // 2. Ordenar toda la lista usando la posiciÃ³n del jugador (playerX, playerY)
+    // El 'this' en los corchetes es necesario para que el lambda pueda leer playerX y playerY de la clase Game
+    std::sort(spritesToRender.begin(), spritesToRender.end(), [this](Sprite* a, Sprite* b) {
+        // Distancia al cuadrado para optimizar (nos ahorramos la raÃ­z cuadrada)
+        double distA = ((a->x - playerX) * (a->x - playerX) + (a->y - playerY) * (a->y - playerY));
+        double distB = ((b->x - playerX) * (b->x - playerX) + (b->y - playerY) * (b->y - playerY));
+        
+        // Retornamos true si 'a' estÃ¡ MÃS LEJOS que 'b' para que se dibuje primero
+        return distA > distB; 
+    });
+
+    // 3. Ahora sÃ­, dibujar de atrÃ¡s hacia adelante
+    for (Sprite* s : spritesToRender) {
+        s->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
     }
 }
 
@@ -627,7 +650,7 @@ void Game::renderUI() {
         // DIBUJAR UI
 
         // Barra de vida
-        // Actualizar ancho según vida
+        // Actualizar ancho segï¿½n vida
         healthBarFront.w = (int)((health / 100.0f) * 200);
 
 		// Dibujar Fondo Bordo
@@ -637,10 +660,10 @@ void Game::renderUI() {
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         SDL_RenderFillRect(renderer, &healthBarFront);
 
-        // Texto de Munición
+        // Texto de Municiï¿½n
         SDL_Color textColor = { 255, 255, 0 }; // Amarillo
         char ammoBuffer[20];
-        sprintf_s(ammoBuffer, "Ammo: %d", ammo);
+        snprintf(ammoBuffer, sizeof(ammoBuffer), "Ammo: %d", ammo);
 
         SDL_Surface* textSurface = TTF_RenderText_Solid(font, ammoBuffer, textColor);
         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
@@ -670,7 +693,7 @@ void Game::renderUI() {
         // Dibujar fondo
         SDL_RenderCopy(renderer, backgroundTexture, NULL, NULL);
 
-        // Dibujar botón (el cuadro)
+        // Dibujar botï¿½n (el cuadro)
 		if (playButton.texture)
         SDL_RenderCopy(renderer, playButton.texture, NULL, &playButton.rect);
         else
@@ -697,21 +720,21 @@ void Game::checkShooting(Sprite* enemy, float playerX, float playerY, float play
     // Angulo hacia el enemigo
     float angleToEnemy = atan2f(dy, dx) - playerAngle;
 
-    // Normalizar ángulo
+    // Normalizar ï¿½ngulo
     while (angleToEnemy < -M_PI) angleToEnemy += 2 * M_PI;
     while (angleToEnemy > M_PI) angleToEnemy -= 2 * M_PI;
 
-    // Si el ángulo es muy pequeño lo tenemos en la mira
-    // También verificamos que esté cerca (rango del arma)
+    // Si el ï¿½ngulo es muy pequeï¿½o lo tenemos en la mira
+    // Tambiï¿½n verificamos que estï¿½ cerca (rango del arma)
     if (fabs(angleToEnemy) < 0.15f && distToEnemy < 10.0f) {
 
-        // 4. Muro en el medio (Oclusión)
+        // 4. Muro en el medio (Oclusiï¿½n)
         // Miramos el ZBuffer en el centro de la pantalla (Screen Width / 2)
-        // Si la pared está más cerca que el enemigo, fallamos el tiro.
+        // Si la pared estï¿½ mï¿½s cerca que el enemigo, fallamos el tiro.
         float wallDist = zBuffer[SCREEN_WIDTH / 2];
 
         if (distToEnemy < wallDist) {
-			enemy->takeDamage(50); // 50 de daño, TODO: variable arma
+			enemy->takeDamage(50); // 50 de daï¿½o, TODO: variable arma
         }
     }
 }
@@ -726,13 +749,13 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
     int testCellX = (int)(nextX + signX * playerRadius);
     int cellY = (int)(playerY);
 
-    // chequeo de límites (ajusta mapWidth/mapHeight)
+    // chequeo de lï¿½mites (ajusta mapWidth/mapHeight)
     if (testCellX >= 0 && testCellX < mapWidth && cellY >= 0 && cellY < mapHeight) {
         if (worldMap[cellY][testCellX] == 0) {
             playerX = nextX;
         }
         else {
-            // pegá el jugador al borde interno del pasillo
+            // pegï¿½ el jugador al borde interno del pasillo
             float wallEdgeX = (signX > 0) ? (testCellX - playerRadius - skin)
                 : (testCellX + 1 + playerRadius + skin);
             playerX = wallEdgeX;
@@ -762,13 +785,13 @@ void Game::loadLevel() {
     for (auto s : sprites) delete s;
     sprites.clear();
 
-    crosshairSurf = Utils::LoadTexture("crosshair.png");
+    crosshairSurf = Utils::LoadTexture("Assets/Sprites/UI/crosshair.png");
     crosshairTexture = SDL_CreateTextureFromSurface(renderer, crosshairSurf);
     crossW = crosshairSurf->w;
     crossH = crosshairSurf->h;
     SDL_FreeSurface(crosshairSurf);
 
-    fireballTex = ResourceManager::Get().GetTexture("fireball1.png");
+    fireballTex = ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/fireball.png");
     // Recorremos todo el mapa
     for (int y = 0; y < mapHeight; y++) {
         for (int x = 0; x < mapWidth; x++) {
@@ -777,29 +800,32 @@ void Game::loadLevel() {
 
             // SI ES UN ENEMIGO
             if (cellType == 9) {
-                textureEnemyIdle = ResourceManager::Get().GetTexture("ogre_idle.png");
-				// Crear el sprite en la celda (x + 0.5f, y + 0.5f) para centrarlo
-                Sprite* s = new Enemy(x + 0.5f, y + 0.5f, textureEnemyIdle, TYPE_RANGED);
-
+                textureEnemyIdle = ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/ogre_idle_01.png");
+				std::cout << "1. Textura cargada." << std::endl;
+                Enemy* newEnemy = new Enemy(x + 0.5f, y + 0.5f, textureEnemyIdle, TYPE_MELEE);
+                std::cout << "2. Enemigo creado en memoria." << std::endl;
                 for (auto surf : textureEnemyDie) {
-                    s->addDeathFrame(surf);
+                    newEnemy->addDeathFrame(surf);
                 }
-                sprites.push_back(s);
-
+                for(auto surf : textureEnemyMeleeAttack){
+                    newEnemy->addAttackFrame(surf);
+                }
+                sprites.push_back(newEnemy);
+                std::cout << "3. Enemigo metido a la lista." << std::endl;
                 // IMPORTANTE: Borrar el 9 del mapa para que sea suelo transitable
                 worldMap[y][x] = 0;
             }
 			if (cellType == 4) { // Health potion
-                SDL_Surface* tex = ResourceManager::Get().GetTexture("health_potion.png");
+                SDL_Surface* tex = ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/health_potion.png");
                 // Creamos un Pickup en lugar de un Sprite normal
                 // Nota: x + 0.5f centra el objeto en el cuadrado
                 Pickup* p = new Pickup(x + 0.5f, y + 0.5f, tex, PICKUP_HEALTH, 25);
 
                 sprites.push_back(p); // Lo guardamos en la misma lista que los enemigos
-                worldMap[y][x] = 0;   // Borramos el número del mapa para que no sea pared
+                worldMap[y][x] = 0;   // Borramos el nï¿½mero del mapa para que no sea pared
             }
 			else if (cellType == 5) { // Mana potion
-                SDL_Surface* tex = ResourceManager::Get().GetTexture("mana_potion.png");
+                SDL_Surface* tex = ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/mana_potion.png");
                 Pickup* p = new Pickup(x + 0.5f, y + 0.5f, tex, PICKUP_AMMO, 10);
 
                 sprites.push_back(p);
@@ -818,12 +844,12 @@ void Game::loadLevel() {
 }
 
 void Game::drawMinimap(SDL_Renderer* renderer,
-	int mapWidth, int mapHeight, int worldMap[][30], // Por ahora ajustar dimensiones manualmente
+	int mapWidth, int mapHeight, int worldMap[][7], // Por ahora ajustar dimensiones manualmente
     float playerX, float playerY,
     float playerAngle,
     float fov,             // FOV en radianes
     int screenWidth, int screenHeight,
-    const std::vector<float>& zBuffer) // opcional si querés pintar alcance de rayos
+    const std::vector<float>& zBuffer) // opcional si querï¿½s pintar alcance de rayos
 {
     // Origen del minimap en pantalla
     int originX = MINI_PADDING;
@@ -854,20 +880,17 @@ void Game::drawMinimap(SDL_Renderer* renderer,
         }
     }
 
-    // Rayos (opcional): dibujamos algunos para ver FOV y colisiones
-    // Asumimos que tirás 1 rayo por columna en el render principal.
-    // Dibujamos solo cada MINI_RAYS_STEP para ahorrar.
     int rays = screenWidth;
     for (int x = 0; x < rays; x += MINI_RAYS_STEP) {
-        // Ángulo del rayo x (ajusta a tu cálculo real)
+        // ï¿½ngulo del rayo x (ajusta a tu cï¿½lculo real)
         float rayAngle = (playerAngle - fov * 0.5f) + (float)x / (float)rays * fov;
 
-        // Punto final aproximado usando una distancia recortada (si no tenés zBuffer a mano)
+        // Punto final aproximado usando una distancia recortada (si no tenï¿½s zBuffer a mano)
         float maxD = 8.0f; // longitud visual del rayo en minimap
         float endX = playerX + cosf(rayAngle) * maxD;
         float endY = playerY + sinf(rayAngle) * maxD;
 
-        // Si tenés zBuffer[x] con la distancia corregida, usalo:
+        // Si tenï¿½s zBuffer[x] con la distancia corregida, usalo:
         if (!zBuffer.empty() && x < (int)zBuffer.size()) {
             float d = std::min(zBuffer[x], maxD);
             endX = playerX + cosf(rayAngle) * d;
@@ -890,7 +913,7 @@ void Game::drawMinimap(SDL_Renderer* renderer,
     SDL_Rect pRect{ px - 2, py - 2, 4, 4 };
     SDL_RenderFillRect(renderer, &pRect);
 
-    // Dirección del jugador (flecha corta)
+    // Direcciï¿½n del jugador (flecha corta)
     int lookX = px + (int)(cosf(playerAngle) * 10);
     int lookY = py + (int)(sinf(playerAngle) * 10);
     SDL_SetRenderDrawColor(renderer, 255, 220, 0, 255);
@@ -927,7 +950,7 @@ void Game::clean() {
 	currentWeapon = nullptr;
 
     // ---------------------------------------------------------
-    // LIMPIAR RECURSOS ESPECÍFICOS DE SDL
+    // LIMPIAR RECURSOS ESPECï¿½FICOS DE SDL
     // ---------------------------------------------------------
 
     // Buffer de Video
@@ -964,7 +987,7 @@ void Game::clean() {
         window = nullptr;
     }
 
-    // Apagar librerías en orden inverso
+    // Apagar librerï¿½as en orden inverso
     IMG_Quit();
     TTF_Quit();
     SDL_Quit();

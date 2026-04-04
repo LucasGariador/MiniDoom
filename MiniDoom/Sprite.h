@@ -3,46 +3,52 @@
 #include <iostream>
 #include <vector>  
 
-enum EnemyState {
-	STATE_IDLE,    // Parado / Caminando
-	STATE_ATTACKING, // Atacando
-	STATE_DYING,   // Reproduciendo animaciÛn de muerte
-	STATE_DEAD     // Ya muriÛ (se queda en el suelo o desaparece)
+// Renombrado a EntityState o SpriteState para que sea universal
+enum EntityState {
+    STATE_IDLE,      // Parado / Estado por defecto (una antorcha encendida)
+    STATE_WALKING,   // Opcional: para cuando el enemigo te persigue
+    STATE_ATTACKING, // El enemigo ataca (los props normales nunca usar√°n esto)
+    STATE_DYING,     // Reproduciendo animaci√≥n de muerte (enemigo cayendo, o barril explotando)
+    STATE_DEAD       // Ya muri√≥ (se queda en el suelo o desaparece)
 };
 
 class Sprite {
 public:
-	float x, y; // PosiciÛn en el mundo
-	bool isDead = false;
-	int hp;
-	float scale;
-	float zOffset;
-	// SISTEMA DE ANIMACI”N
-	EnemyState state;           // Estado actual
-	SDL_Surface* currentSurf;   // La imagen que se dibuja ACTUALMENTE (puntero a una de la lista)
+    float x, y; // Posici√≥n en el mundo
+    bool isDead = false;
+    int hp;
+    float scale;
+    float zOffset;
+    
+    // SISTEMA DE ANIMACI√ìN
+    EntityState state;          // Estado actual
+	SDL_Surface* defaultSurf;
+    SDL_Surface* currentSurf;
 
-	// Animaciones
-	std::vector<SDL_Surface*> animDeath; // Lista de im·genes de muerte
-	int animFrame;       // En quÈ cuadro vamos (0, 1, 2...)
-	float animTimer;     // Tiempo acumulado para cambiar cuadro
-	float animSpeed;     // QuÈ tan r·pido cambia 
 
-	Sprite(float px, float py, SDL_Surface* initialTexture, float sc);
+    std::vector<SDL_Surface*> animIdle; 
+    std::vector<SDL_Surface*> animDeath; // Lista de im√°genes de muerte
+    
+    int animFrame;       // En qu√© cuadro vamos (0, 1, 2...)
+    float animTimer;     // Tiempo acumulado para cambiar cuadro
+    float animSpeed;     // Qu√© tan r√°pido cambia 
 
-	virtual ~Sprite();
+    Sprite(float px, float py, SDL_Surface* initialTexture, float sc);
 
-	void virtual update(float deltaTime);
+    virtual ~Sprite();
 
-	void draw(Uint32* screenBuffer,
-		const std::vector<float>& zBuffer,
-		int SCREEN_WIDTH, int SCREEN_HEIGHT,
-		float playerX, float playerY,
-		float playerAngle, float FOV
-		);
+    virtual void update(float deltaTime);
 
-	void takeDamage(int amount);
+    void draw(Uint32* screenBuffer,
+        const std::vector<float>& zBuffer,
+        int SCREEN_WIDTH, int SCREEN_HEIGHT,
+        float playerX, float playerY,
+        float playerAngle, float FOV
+        );
 
-	void addDeathFrame(SDL_Surface* surf);
+    virtual void takeDamage(int amount);
 
-	virtual bool isPickup() { return false; }
+    void addDeathFrame(SDL_Surface* surf);
+    void addIdleFrame(SDL_Surface* surf);
+    virtual bool isPickup() { return false; }
 };

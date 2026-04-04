@@ -4,16 +4,16 @@
 
 // Tipos de objetos
 enum PickupType {
-    PICKUP_HEALTH,  // Botiquín
-    PICKUP_AMMO,    // Munición
+    PICKUP_HEALTH,  // Botiquï¿½n
+    PICKUP_AMMO,    // Municiï¿½n
     PICKUP_WEAPON   // Arma
 };
 
 class Pickup : public Sprite {
 public:
     PickupType type;
-    int amount; // Cuánto cura o cuántas balas da
-	float floatingOffset = 0.0f; // Flotación
+    int amount; // Cuï¿½nto cura o cuï¿½ntas balas da
+	float floatingOffset = 0.0f; // Flotaciï¿½n
     // Constructor
     Pickup(float x, float y, SDL_Surface* tex, PickupType t, int val)
         : Sprite(x, y, tex, scale) // Llamamos al constructor del padre
@@ -21,14 +21,14 @@ public:
         type = t;
         amount = val;
 
-		// Los pickups son más pequeños
+		// Los pickups son mï¿½s pequeï¿½os
         scale = 0.4f;
     }
 
-    // Sobreescribimos para identificarlo fácil
+    // Sobreescribimos para identificarlo fï¿½cil
     bool isPickup() override { return true; }
 
-    // Función que se ejecuta al tocarlo
+    // Funciï¿½n que se ejecuta al tocarlo
     void onCollect(int& playerHP, int& playerAmmo) {
         switch (type) {
         case PICKUP_HEALTH:
@@ -53,9 +53,9 @@ public:
         Sprite::update(deltaTime);
         
         float time = SDL_GetTicks() * 0.003f;
-        float phase = (x + y); // Seed aleatoria basada en posición
+        float phase = (x + y); // Seed aleatoria basada en posiciï¿½n
         
-		zOffset = sin(time + phase) * 30.0f; // Oscilación vertical
+		zOffset = sin(time + phase) * 30.0f; // Oscilaciï¿½n vertical
         
     }
 };
