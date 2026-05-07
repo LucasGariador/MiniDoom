@@ -9,6 +9,10 @@
 
 
 #include "Game.h"
+#include <fstream>
+#include "json.hpp"
+
+using json = nlohmann::json;
 
 Game::Game()
 	: playerX(0), playerY(0), playerAngle(0), FOV(0), // Default values, will be set in init()
@@ -152,7 +156,7 @@ bool Game::init(const char* title, int width, int height) {
 
     SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h);
 
-    // Definir el tama�o del bot�n basado en el texto + un margen (padding)
+    
     int padding = 40;
     playButton.rect.w = textRect.w + padding;
     playButton.rect.h = textRect.h + padding;
@@ -741,7 +745,7 @@ void Game::checkShooting(Sprite* enemy, float playerX, float playerY, float play
 
 void Game::MoveWithCollision(float& playerX, float& playerY,
     float dx, float dy,
-    const int worldMap[mapHeight][mapWidth],
+    const std::vector<std::vector<int>>& worldMap,
     float playerRadius, float skin) {
     //mover en X
     float nextX = playerX + dx;
@@ -749,13 +753,11 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
     int testCellX = (int)(nextX + signX * playerRadius);
     int cellY = (int)(playerY);
 
-    // chequeo de l�mites (ajusta mapWidth/mapHeight)
     if (testCellX >= 0 && testCellX < mapWidth && cellY >= 0 && cellY < mapHeight) {
         if (worldMap[cellY][testCellX] == 0) {
             playerX = nextX;
         }
         else {
-            // peg� el jugador al borde interno del pasillo
             float wallEdgeX = (signX > 0) ? (testCellX - playerRadius - skin)
                 : (testCellX + 1 + playerRadius + skin);
             playerX = wallEdgeX;
@@ -782,6 +784,7 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
 }
 
 void Game::loadLevel() {
+    
     for (auto s : sprites) delete s;
     sprites.clear();
 
@@ -843,13 +846,57 @@ void Game::loadLevel() {
     }
 }
 
+bool Game::loadMapFromJSON(const std::string& filepath) {
+    // 1. Abrimos el archivo
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "ERROR FATAL: No se pudo abrir el archivo JSON: " << filepath << std::endl;
+        return false;
+    }
+
+    // 2. Parseamos la estructura
+    json j;
+    try {
+        file >> j; 
+    } catch (json::parse_error& e) {
+        std::cerr << "ERROR DE PARSEO JSON: " << e.what() << std::endl;
+        return false;
+    }
+
+    // 3. Verificamos que tenga la clave "map"
+    if (j.contains("map")) {
+        
+        // ¡Carga automática del array 2D!
+        worldMap = j["map"].get<std::vector<std::vector<int>>>(); 
+        
+        // Actualizamos los límites del motor
+        mapHeight = worldMap.size();
+        mapWidth = (mapHeight > 0) ? worldMap[0].size() : 0;
+
+        // --- LECTURA DE METADATOS ---
+        std::string version = j.contains("version") ? j["version"].get<std::string>() : "Desconocida";
+        int metadataSize = j.contains("size") ? j["size"].get<int>() : 0;
+
+        std::cout << "======================================" << std::endl;
+        std::cout << "[NIVEL] Archivo cargado: " << filepath << std::endl;
+        std::cout << "[NIVEL] Version JSON: " << version << std::endl;
+        std::cout << "[NIVEL] Dimensiones Reales: " << mapWidth << "x" << mapHeight << std::endl;
+        std::cout << "======================================" << std::endl;
+        
+        return true;
+    } else {
+        std::cerr << "ERROR: El JSON no contiene el arreglo 'map'." << std::endl;
+        return false;
+    }
+}
+
 void Game::drawMinimap(SDL_Renderer* renderer,
-	int mapWidth, int mapHeight, int worldMap[][7], // Por ahora ajustar dimensiones manualmente
+	int mapWidth, int mapHeight, const std::vector<std::vector<int>>& worldMap,
     float playerX, float playerY,
     float playerAngle,
     float fov,             // FOV en radianes
     int screenWidth, int screenHeight,
-    const std::vector<float>& zBuffer) // opcional si quer�s pintar alcance de rayos
+    const std::vector<float>& zBuffer) // opcional si quers pintar alcance de rayos
 {
     // Origen del minimap en pantalla
     int originX = MINI_PADDING;

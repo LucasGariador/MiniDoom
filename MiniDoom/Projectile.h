@@ -28,14 +28,14 @@ struct Projectile
         delete spriteVis;
     }
 
-    void update(float deltaTime, int mapW, int mapH, int worldMap[][7]) {
+    void update(float deltaTime, int mapW, int mapH, const std::vector<std::vector<int>>& worldMap) {
         if (!active) return;
 
         // 1. Mover
         x += dx * deltaTime;
         y += dy * deltaTime;
 
-        // 2. Actualizar la posici�n del sprite visual para que se dibuje bien
+        // 2. Actualizar la posicion del sprite visual para que se dibuje bien
         spriteVis->x = x;
         spriteVis->y = y;
 

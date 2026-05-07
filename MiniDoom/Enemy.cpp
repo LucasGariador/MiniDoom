@@ -1,7 +1,7 @@
 #include "Enemy.h"
 #include "Projectile.h"
 
-void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerHP, std::vector<Projectile*>& projectiles, SDL_Surface* bulletTex, const int worldMap[7][7]) {
+void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerHP, std::vector<Projectile*>& projectiles, SDL_Surface* bulletTex, const std::vector<std::vector<int>>& worldMap) {
     
     if (state == STATE_DEAD || state == STATE_DYING) {
         update(deltaTime);
@@ -123,7 +123,7 @@ void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerH
     update(deltaTime);
 }
 
-bool Enemy::CheckLineOfSight(float x1, float y1, float x2, float y2, const int worldMap[7][7]) {
+bool Enemy::CheckLineOfSight(float x1, float y1, float x2, float y2, const std::vector<std::vector<int>>& worldMap) {
     int mapX = (int)x1;
     int mapY = (int)y1;
     int targetX = (int)x2;

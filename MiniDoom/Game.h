@@ -33,7 +33,7 @@ public:
 
 private:
     bool isRunning;
-	float deltaTime;
+    float deltaTime;
     SDL_Window* window;
     SDL_Renderer* renderer;
 
@@ -44,32 +44,32 @@ private:
     int screenWidth;
     int screenHeight;
 
-	int floorW, floorH, ceilW, ceilH;
+    int floorW, floorH, ceilW, ceilH;
 
     // --- JUGADOR ---
     float playerX, playerY;
     float playerAngle;
     float FOV;
-	float mouseSensitivity = 0.003f;
-	const float moveSpeed = 4.0f;
-	bool playerIsMoving;
+    float mouseSensitivity = 0.003f;
+    const float moveSpeed = 4.0f;
+    bool playerIsMoving;
     const float playerRadius = 0.20f;
     const float skin = 0.001f;
     const float depth = 16.0f;
    
 
-	// --- UI ---
+    // --- UI ---
     Button playButton;
 
-	int health = 100;
-	int ammo = 30;
-	SDL_Rect healthBarBack = { 300, 550, 200, 25 }; // Red
-	SDL_Rect healthBarFront = { 300, 550, 200, 25 }; // Light Red
-	SDL_Rect textRect;
-	bool showUI = true;
+    int health = 100;
+    int ammo = 30;
+    SDL_Rect healthBarBack = { 300, 550, 200, 25 }; // Red
+    SDL_Rect healthBarFront = { 300, 550, 200, 25 }; // Light Red
+    SDL_Rect textRect;
+    bool showUI = true;
     int crossW;
     int crossH;
-	float damageFlashTimer = 0.0f;
+    float damageFlashTimer = 0.0f;
 
     // --- MAPA ---
     const int MINI_SCALE = 6;
@@ -77,22 +77,24 @@ private:
     const int MINI_RAYS_STEP = 2;
     bool showMinimap = true;
 
-    static const int mapWidth = 7;
-    static const int mapHeight = 7;
+    // Ya no son "static const", ahora son variables dinámicas
+    int mapWidth = 7;
+    int mapHeight = 7;
 
-    int worldMap[mapHeight][mapWidth] = {
-    {1,1,1,1,1,1,1},
-    {1,7,0,0,0,0,1},
-    {1,0,0,0,0,0,1},
-    {1,0,0,0,0,0,1},
-    {1,0,0,0,0,9,1},
-    {1,0,0,0,0,0,1},
-    {1,1,1,1,1,1,1}
+    // Mapa convertido a vector dinámico (Listo para inyectarle el JSON)
+    std::vector<std::vector<int>> worldMap = {
+        {1,1,1,1,1,1,1},
+        {1,7,0,0,0,4,1},
+        {1,0,0,0,0,0,1},
+        {1,0,0,0,0,0,1},
+        {1,0,0,0,0,0,1},
+        {1,5,0,0,0,0,1},
+        {1,1,1,1,1,1,1}
     };
 
     // --- RECURSOS ---
     SDL_Surface* wallSurface;
-	SDL_Surface* wallSurface_2;
+    SDL_Surface* wallSurface_2;
     SDL_Surface* wallSurface_3;
     Uint32* textures[3];
     Uint32* wallPixels;
@@ -105,9 +107,8 @@ private:
     SDL_Texture* textTexture;
 
     SDL_Surface* fireballTex;
-	SDL_Surface* handsSurf;
-	SDL_Texture* backgroundTexture;
-
+    SDL_Surface* handsSurf;
+    SDL_Texture* backgroundTexture;
 
     // --- ENTIDADES ---
     std::vector<Projectile*> projectiles;
@@ -115,8 +116,8 @@ private:
     std::vector<SDL_Surface*> textureEnemyDie;
     std::vector<SDL_Surface*> textureEnemyMeleeAttack;
     Weapon playerStaff;
-	Weapon handsWeapon;
-	Weapon* currentWeapon;
+    Weapon handsWeapon;
+    Weapon* currentWeapon;
     SDL_Surface* textureEnemyIdle;
     std::vector<float> zBuffer;
     
@@ -125,23 +126,30 @@ private:
     void renderWorld();
     void renderSprites();
     void renderUI();
-	void loadLevel();
+    void loadLevel();
+    bool loadMapFromJSON(const std::string& filepath);
+    
+    // --- FIRMAS ACTUALIZADAS ---
     void MoveWithCollision(float& playerX, float& playerY,
         float dx, float dy,
-        const int worldMap[mapHeight][mapWidth],
+        const std::vector<std::vector<int>>& worldMap, // Cambio aquí
         float playerRadius, float skin);
+        
     void drawMinimap(SDL_Renderer* renderer,
-        int mapWidth, int mapHeight, int worldMap[][7],
+        int mapWidth, int mapHeight, 
+        const std::vector<std::vector<int>>& worldMap, // Cambio aquí
         float playerX, float playerY,
         float playerAngle,
         float fov,
         int screenWidth, int screenHeight,
         const std::vector<float>& zBuffer);
+        
     void checkShooting(Sprite* enemy,
         float playerX, float playerY,
         float playerAngle,
         const std::vector<float>& zBuffer,
         int screenWidth);
-	template <typename T>
+        
+    template <typename T>
     void cleanDeadEntities(std::vector<T*>& list);
 };

@@ -63,9 +63,9 @@ public:
         }
     }
 
-    void updateAI(float deltaTime, float playerX, float playerY, int& playerHP, std::vector<Projectile*>& projectiles, SDL_Surface* bulletTex, const int worldMap[6][7]);
+    void updateAI(float deltaTime, float playerX, float playerY, int& playerHP, std::vector<Projectile*>& projectiles, SDL_Surface* bulletTex, const std::vector<std::vector<int>>& worldMap);
 
-    bool CheckLineOfSight(float x1, float y1, float x2, float y2, const int worldMap[6][7]);
+    bool CheckLineOfSight(float x1, float y1, float x2, float y2, const std::vector<std::vector<int>>& worldMap);
 
     void addAttackFrame(SDL_Surface* surf);
 };
