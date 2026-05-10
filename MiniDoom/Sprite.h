@@ -29,7 +29,7 @@ public:
     std::vector<SDL_Surface*> animIdle; 
     std::vector<SDL_Surface*> animDeath; // Lista de imágenes de muerte
     
-    int animFrame;       // En qué cuadro vamos (0, 1, 2...)
+    int animFrame;       // En qué cuadro vamos
     float animTimer;     // Tiempo acumulado para cambiar cuadro
     float animSpeed;     // Qué tan rápido cambia 
 
@@ -43,12 +43,13 @@ public:
         const std::vector<float>& zBuffer,
         int SCREEN_WIDTH, int SCREEN_HEIGHT,
         float playerX, float playerY,
-        float playerAngle, float FOV
+        float playerAngle, float FOV, bool debugMode
         );
 
     virtual void takeDamage(int amount);
 
     void addDeathFrame(SDL_Surface* surf);
     void addIdleFrame(SDL_Surface* surf);
+    void setZOffset(float newZ);
     virtual bool isPickup() { return false; }
 };

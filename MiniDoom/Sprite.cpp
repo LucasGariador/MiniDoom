@@ -3,6 +3,7 @@
 #include <cmath>
 #include <algorithm>
 #include <vector>
+#include "Game.h"
 
 Sprite::Sprite(float px, float py, SDL_Surface* initialTexture, float sc)
 	: x(px), y(py), currentSurf(initialTexture), hp(100), scale(sc), zOffset(0.0f)
@@ -22,13 +23,9 @@ void Sprite::draw(Uint32* screenBuffer,
     const std::vector<float>& zBuffer,
     int SCREEN_WIDTH, int SCREEN_HEIGHT,
     float playerX, float playerY,
-    float playerAngle, float FOV)
+    float playerAngle, float FOV, bool debugMode)
 {
     if (!currentSurf) return;
-
-    // Safety check: Ensure surface is 32-bit (4 bytes per pixel)
-
-    // If your BMP is 24-bit, this code will crash without conversion.
 
     if (currentSurf->format->BytesPerPixel != 4) {
 
@@ -71,10 +68,9 @@ void Sprite::draw(Uint32* screenBuffer,
 
     int vMoveScreen = (int)(zOffset / perpDist);
 
-    int drawStartY = (int)(halfH - spriteScreenH / 2) + vMoveScreen; // <--- SUMAR AQUÍ
-    int drawEndY = (int)(halfH + spriteScreenH / 2) + vMoveScreen;   // <--- SUMAR AQUÍ
-    // drawStartY += vMoveScreen;
-    // drawEndY += vMoveScreen;
+    int drawStartY = (int)(halfH - spriteScreenH / 2) + vMoveScreen;
+    int drawEndY = (int)(halfH + spriteScreenH / 2) + vMoveScreen;
+
 
     if (drawStartX >= SCREEN_WIDTH || drawEndX < 0 || drawStartY >= SCREEN_HEIGHT || drawEndY < 0) return;
 
@@ -84,15 +80,13 @@ void Sprite::draw(Uint32* screenBuffer,
     int loopEndX = drawEndX;
     if (loopEndX >= SCREEN_WIDTH) loopEndX = SCREEN_WIDTH - 1;
 
-    int loopStartY = drawStartY; // Renombrado para claridad
+    int loopStartY = drawStartY; 
     if (loopStartY < 0) loopStartY = 0;
     int loopEndY = drawEndY;
     if (loopEndY >= SCREEN_HEIGHT) loopEndY = SCREEN_HEIGHT - 1;
 
-    // Punteros directos
     Uint32* texPixels = (Uint32*)currentSurf->pixels;
 
-    // Pasos de textura
     float stepX = (float)textureWidth / (float)spriteScreenW;
     float stepY = (float)textureHeight / (float)spriteScreenH;
 
@@ -100,52 +94,46 @@ void Sprite::draw(Uint32* screenBuffer,
     
     for (int x = loopStartX; x <= loopEndX; ++x) {
 
-        // Z-Buffer Check: ¿Está el sprite delante de la pared?
         if (perpDist < zBuffer[x]) {
 
             int texX = (int)texPosX;
-            if (texX >= textureWidth) texX = textureWidth - 1; // Clamp simple
+            if (texX >= textureWidth) texX = textureWidth - 1;
 
             float texPosY = (loopStartY - drawStartY) * stepY;
 
             for (int y = loopStartY; y <= loopEndY; ++y) {
                 int texY = (int)texPosY;
-                if (texY >= textureHeight) texY = textureHeight - 1; // Clamp simple
+                if (texY >= textureHeight) texY = textureHeight - 1;
 
                 int index = texY * textureWidth + texX;
 
                 int maxSize = (currentSurf->pitch / 4) * currentSurf->h;
-                // Obtener color (Bitwise AND es más rápido que modulo, pero requiere potencias de 2. Usamos acceso directo)
+            
                 if (index >= 0 && index < maxSize) {
                     Uint32 color = texPixels[texY * textureWidth + texX];
 
-                    // Transparencia: Chequear Canal Alpha (Byte más alto)
-                    // Si el color es 0x00RRGGBB, es transparente.
                     if ((color >> 24) != 0) {
-                        // --- INICIO DE DEBUG VISUAL ---
-    // 1. Extraemos los canales originales del píxel (Asumiendo formato ARGB)
-    Uint8 a = (color >> 24) & 0xFF;
-    Uint8 r = (color >> 16) & 0xFF;
-    Uint8 g = (color >> 8)  & 0xFF;
-    Uint8 b = color         & 0xFF;
+                        if(debugMode){
+                        Uint8 a = (color >> 24) & 0xFF;
+                        Uint8 r = (color >> 16) & 0xFF;
+                        Uint8 g = (color >> 8)  & 0xFF;
+                        Uint8 b = color         & 0xFF;
 
-    // 2. Aplicamos el tinte según el estado
-    if (state == STATE_WALKING) {
-        // Tinte ROJO
-        r = 255; g = g / 2; b = b / 2; 
-    } 
-    else if (state == STATE_IDLE) {
-        // Tinte VERDE
-        g = 255; r = r / 2; b = b / 2; 
-    }
-    else if (state == STATE_ATTACKING) {
-        // Tinte AZUL
-        b = 255; r = r / 2; g = g / 2; 
-    }
+                        if (state == STATE_WALKING) {
+                            // Tinte ROJO
+                            r = 255; g = g / 2; b = b / 2; 
+                        } 
+                        else if (state == STATE_IDLE) {
+                            // Tinte VERDE
+                            g = 255; r = r / 2; b = b / 2; 
+                        }
+                        else if (state == STATE_ATTACKING) {
+                            // Tinte AZUL
+                            b = 255; r = r / 2; g = g / 2; 
+                        }
 
-    // 3. Reensamblamos el píxel modificado
-    color = (a << 24) | (r << 16) | (g << 8) | b;
-    // --- FIN DE DEBUG VISUAL ---
+                        color = (a << 24) | (r << 16) | (g << 8) | b;
+                    }
                         screenBuffer[y * SCREEN_WIDTH + x] = color;
                     }
                 }
@@ -182,16 +170,15 @@ void Sprite::update(float deltaTime) {
 }
 
 void Sprite::takeDamage(int amount) {
-    if (state == STATE_DEAD || state == STATE_DYING) return; // No rematar muertos
+    if (state == STATE_DEAD || state == STATE_DYING) return;
 
     hp -= amount;
     if (hp <= 0) {
         hp = 0;
-        state = STATE_DYING; // <--- AQUÍ EMPIEZA LA ANIMACIÓN
+        state = STATE_DYING;
         animFrame = 0;
         animTimer = 0;
 
-        // Cambiar inmediatamente al primer frame de muerte si existe
         if (!animDeath.empty()) {
             currentSurf = animDeath[0];
         }
@@ -201,3 +188,5 @@ void Sprite::takeDamage(int amount) {
 void Sprite::addDeathFrame(SDL_Surface* surf) {
     animDeath.push_back(surf);
 }
+
+void Sprite::setZOffset(float newZ) { zOffset = newZ;}

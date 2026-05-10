@@ -3,19 +3,19 @@
 
 struct Projectile
 {
-    float x, y;          // Posici�n en el mapa
-    float dx, dy;        // Velocidad (direcci�n * velocidad)
-    float speed = 10.0f; // Velocidad de la bola de fuego
-    bool active = true;  // �Sigue volando?
-    bool hostile; // TRUE = Te da�a a ti. FALSE = Da�a enemigos.
-    // Reutilizamos tu clase Sprite para dibujarlo
+    float x, y;
+    float dx, dy;
+    float speed = 10.0f;
+    bool active = true;
+    bool hostile;
+
     Sprite* spriteVis;
 
     Projectile(float startX, float startY, float angle, SDL_Surface* texture, bool isHostile) {
         x = startX;
         y = startY;
         hostile = isHostile;
-        // Calculamos cu�nto se mueve en X e Y bas�ndonos en el �ngulo
+
         dx = cosf(angle) * speed;
         dy = sinf(angle) * speed;
 
@@ -24,7 +24,6 @@ struct Projectile
     }
 
     ~Projectile() {
-        // Nota: No borramos la textura aqu� porque es compartida
         delete spriteVis;
     }
 

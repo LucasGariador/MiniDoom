@@ -28,7 +28,7 @@ public:
     const float RANGED_RANGE = 8.0f; // A 8 metros de distancia (disparo)
     std::vector<SDL_Surface*> animAttack; // Aquí guardarás las imágenes del ataque
 
-    Enemy(float x, float y, SDL_Surface* tex, EnemyType t) : Sprite(x, y, tex, 1.0f) {
+    Enemy(float y, float x, SDL_Surface* tex, EnemyType t) : Sprite(y, x, tex, 1.0f) {
         type = t;
         attackTimer = 0.0f;
         defaultSurf = tex;

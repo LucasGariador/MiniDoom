@@ -4,16 +4,16 @@
 
 // Tipos de objetos
 enum PickupType {
-    PICKUP_HEALTH,  // Botiqu�n
-    PICKUP_AMMO,    // Munici�n
+    PICKUP_HEALTH,  // Botiquin
+    PICKUP_AMMO,    // Munición
     PICKUP_WEAPON   // Arma
 };
 
 class Pickup : public Sprite {
 public:
     PickupType type;
-    int amount; // Cu�nto cura o cu�ntas balas da
-	float floatingOffset = 0.0f; // Flotaci�n
+    int amount;
+	float floatingOffset = 0.0f; // Flotación
     // Constructor
     Pickup(float x, float y, SDL_Surface* tex, PickupType t, int val)
         : Sprite(x, y, tex, scale) // Llamamos al constructor del padre
@@ -21,14 +21,14 @@ public:
         type = t;
         amount = val;
 
-		// Los pickups son m�s peque�os
+		// Los pickups son mas pequenos
         scale = 0.4f;
     }
 
-    // Sobreescribimos para identificarlo f�cil
+    // Sobreescribimos para identificarlo facil
     bool isPickup() override { return true; }
 
-    // Funci�n que se ejecuta al tocarlo
+    // Función que se ejecuta al tocarlo
     void onCollect(int& playerHP, int& playerAmmo) {
         switch (type) {
         case PICKUP_HEALTH:
@@ -43,19 +43,17 @@ public:
             break;
         }
 
-		// Objeto como "muerto" para borrar
         state = STATE_DEAD;
         isDead = true;
     }
 
     void update(float deltaTime) override {
-		// Llamar al update base para futuras animaciones
         Sprite::update(deltaTime);
         
         float time = SDL_GetTicks() * 0.003f;
-        float phase = (x + y); // Seed aleatoria basada en posici�n
+        float phase = (x + y);
         
-		zOffset = sin(time + phase) * 30.0f; // Oscilaci�n vertical
+		zOffset = sin(time + phase) * 30.0f;
         
     }
 };

@@ -23,7 +23,6 @@ struct Weapon {
     // Carga los recursos UNA SOLA VEZ
     void init(SDL_Renderer* renderer, const char* pathIdle, const char* pathFire, bool weaponBob, float scale, int offset);
 
-    // Limpieza de memoria al cerrar el juego
     void clean();
 
     void draw(SDL_Renderer* renderer, int SCREEN_WIDTH, int SCREEN_HEIGHT, float deltaTime, bool isMoving);

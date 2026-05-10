@@ -13,6 +13,7 @@
 #include "Pickup.h"
 #include "Enemy.h"
 #include "Button.h"
+#include "WorldObject.hpp"
 
 class Game {
 public:
@@ -30,6 +31,7 @@ public:
     void clean();
 
     bool running() { return isRunning; }
+    bool debugMode = false;
 
 private:
     bool isRunning;
@@ -60,6 +62,8 @@ private:
 
     // --- UI ---
     Button playButton;
+    int maxHealth = 100;
+    int maxAmmo = 50;
 
     int health = 100;
     int ammo = 30;
@@ -81,14 +85,13 @@ private:
     int mapWidth = 7;
     int mapHeight = 7;
 
-    // Mapa convertido a vector dinámico (Listo para inyectarle el JSON)
     std::vector<std::vector<int>> worldMap = {
         {1,1,1,1,1,1,1},
-        {1,7,0,0,0,4,1},
+        {1,8,0,0,0,4,1},
         {1,0,0,0,0,0,1},
         {1,0,0,0,0,0,1},
         {1,0,0,0,0,0,1},
-        {1,5,0,0,0,0,1},
+        {1,5,0,0,0,7,1},
         {1,1,1,1,1,1,1}
     };
 
@@ -110,11 +113,16 @@ private:
     SDL_Surface* handsSurf;
     SDL_Texture* backgroundTexture;
 
+    std::vector<std::string> levelFiles; // Guarda las rutas de los JSON
+    int currentLevelIndex = 0;           // Nivel actual (empieza en 0)
+
+
     // --- ENTIDADES ---
     std::vector<Projectile*> projectiles;
     std::vector<Sprite*> sprites;
     std::vector<SDL_Surface*> textureEnemyDie;
     std::vector<SDL_Surface*> textureEnemyMeleeAttack;
+    std::vector<SDL_Surface*> portalAnim;
     Weapon playerStaff;
     Weapon handsWeapon;
     Weapon* currentWeapon;
@@ -132,12 +140,12 @@ private:
     // --- FIRMAS ACTUALIZADAS ---
     void MoveWithCollision(float& playerX, float& playerY,
         float dx, float dy,
-        const std::vector<std::vector<int>>& worldMap, // Cambio aquí
+        const std::vector<std::vector<int>>& worldMap,
         float playerRadius, float skin);
         
     void drawMinimap(SDL_Renderer* renderer,
         int mapWidth, int mapHeight, 
-        const std::vector<std::vector<int>>& worldMap, // Cambio aquí
+        const std::vector<std::vector<int>>& worldMap,
         float playerX, float playerY,
         float playerAngle,
         float fov,
@@ -152,4 +160,6 @@ private:
         
     template <typename T>
     void cleanDeadEntities(std::vector<T*>& list);
+
+    void clearLevelMemory();
 };

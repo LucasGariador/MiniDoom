@@ -8,7 +8,7 @@ void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerH
         return;
     }
 
-    // 1. MEMORIA Y VISIÓN (Se actualiza SIEMPRE, sin importar el estado)
+    // 1. MEMORIA Y VISIÓN
     float dx = playerX - x;
     float dy = playerY - y;
     float distSq = (dx * dx) + (dy * dy); 
@@ -41,7 +41,7 @@ void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerH
             }
             break;
 
-        case STATE_WALKING:
+case STATE_WALKING:
             // --- TRANSICIONES DESDE WALKING ---
             if (canSeePlayer && distSq <= activeRangeSq && attackTimer <= 0) {
                 state = STATE_ATTACKING;
@@ -51,17 +51,21 @@ void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerH
                 break;
             }
 
+            // --- EL FRENO DE MANO ---
+            if (canSeePlayer && distSq <= activeRangeSq) {
+                break; 
+            }
+
             // --- COMPORTAMIENTO: PERSEGUIR ---
             {
                 float targetDx = lastKnownX - x;
                 float targetDy = lastKnownY - y;
                 float distToTargetSq = (targetDx * targetDx) + (targetDy * targetDy);
 
-                if (distToTargetSq < 0.1f) {
+                if (distToTargetSq < 0.3f) {
                     hasSeenThePlayer = false;
-                    state = STATE_IDLE; // Llegó y no te vio, se queda quieto
+                    state = STATE_IDLE; 
                 } else {
-                    // Cálculo de movimiento exacto
                     float angleToTarget = atan2(targetDy, targetDx);
                     float speed = (type == TYPE_BOSS) ? 1.0f : 2.0f;
                     
@@ -69,30 +73,36 @@ void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerH
                     float moveStepY = sin(angleToTarget) * speed * deltaTime;
                     float buffer = 0.15f; 
 
-                    // Buffer X
-                    float bufferX = 0.0f;
-                    if (moveStepX > 0.001f) bufferX = buffer;
-                    else if (moveStepX < -0.001f) bufferX = -buffer;
+                    // --- EL ARREGLO MÁGICO: LÍMITES DINÁMICOS LOCALES ---
+                    int mapHeightLocal = worldMap.size();
+                    int mapWidthLocal = (mapHeightLocal > 0) ? worldMap[0].size() : 0;
+
+                    // --- EJE X ---
+                    float bufferX = (moveStepX > 0.001f) ? buffer : ((moveStepX < -0.001f) ? -buffer : 0.0f);
+                    int checkX = (int)(x + moveStepX + bufferX);
+                    int currentY = (int)y;
                     
-                    if ((int)(x + moveStepX + bufferX) >= 0 && (int)(x + moveStepX + bufferX) < mapWidth && worldMap[(int)y][(int)(x + moveStepX + bufferX)] == 0) {
-                        x += moveStepX;
+                    if (checkX >= 0 && checkX < mapWidthLocal && currentY >= 0 && currentY < mapHeightLocal) {
+                        if (worldMap[currentY][checkX] == 0) {
+                            x += moveStepX;
+                        }
                     }
 
-                    // Buffer Y
-                    float bufferY = 0.0f;
-                    if (moveStepY > 0.001f) bufferY = buffer;
-                    else if (moveStepY < -0.001f) bufferY = -buffer;
+                    // --- EJE Y ---
+                    float bufferY = (moveStepY > 0.001f) ? buffer : ((moveStepY < -0.001f) ? -buffer : 0.0f);
+                    int currentX = (int)x; 
+                    int checkY = (int)(y + moveStepY + bufferY);
 
-                    if ((int)(y + moveStepY + bufferY) >= 0 && (int)(y + moveStepY + bufferY) < mapHeight && worldMap[(int)(y + moveStepY + bufferY)][(int)x] == 0) {
-                        y += moveStepY;
+                    if (checkY >= 0 && checkY < mapHeightLocal && currentX >= 0 && currentX < mapWidthLocal) {
+                        if (worldMap[checkY][currentX] == 0) {
+                            y += moveStepY;
+                        }
                     }
                 }
             }
             break;
-
         case STATE_ATTACKING:
             // --- COMPORTAMIENTO: ATACAR ---
-            // ¡Aquí adentro NO HAY CÓDIGO DE MOVIMIENTO!
             animTimer += deltaTime;
             if (animTimer >= animSpeed) {
                 animTimer = 0.0f;
@@ -124,6 +134,10 @@ void Enemy::updateAI(float deltaTime, float playerX, float playerY, int& playerH
 }
 
 bool Enemy::CheckLineOfSight(float x1, float y1, float x2, float y2, const std::vector<std::vector<int>>& worldMap) {
+    // --- 1. OBTENER LÍMITES DINÁMICOS DEL MAPA ---
+    int mapHeight = worldMap.size();
+    int mapWidth = (mapHeight > 0) ? worldMap[0].size() : 0;
+
     int mapX = (int)x1;
     int mapY = (int)y1;
     int targetX = (int)x2;
@@ -131,49 +145,48 @@ bool Enemy::CheckLineOfSight(float x1, float y1, float x2, float y2, const std::
 
     if (mapX == targetX && mapY == targetY) return true;
 
-    // 2. Calcular direcci�n y pasos 
+    // --- 2. CÁLCULO DE DIRECCIÓN Y PASOS ---
     float rayDirX = x2 - x1;
     float rayDirY = y2 - y1;
 
-    // Delta Dist: Distancia que el rayo debe viajar para cruzar una unidad X o Y
     float deltaDistX = (rayDirX == 0) ? 1e30 : std::abs(1.0f / rayDirX);
     float deltaDistY = (rayDirY == 0) ? 1e30 : std::abs(1.0f / rayDirY);
 
-    // Variables de paso
     int stepX, stepY;
     float sideDistX, sideDistY;
 
-    // Calcular step y sideDist inicial
     if (rayDirX < 0) {
         stepX = -1;
         sideDistX = (x1 - mapX) * deltaDistX;
-    }
-    else {
+    } else {
         stepX = 1;
         sideDistX = (mapX + 1.0f - x1) * deltaDistX;
     }
+    
     if (rayDirY < 0) {
         stepY = -1;
         sideDistY = (y1 - mapY) * deltaDistY;
-    }
-    else {
+    } else {
         stepY = 1;
         sideDistY = (mapY + 1.0f - y1) * deltaDistY;
     }
 
     int maxSteps = 100;
 
+    // --- 3. LANZAMIENTO DEL RAYO ---
     for (int i = 0; i < maxSteps; i++) {
         if (sideDistX < sideDistY) {
             sideDistX += deltaDistX;
             mapX += stepX;
-        }
-        else {
+        } else {
             sideDistY += deltaDistY;
             mapY += stepY;
         }
 
-        if (mapX < 0 || mapX >= 7 || mapY < 0 || mapY >= 7) return false;
+        // --- EL ARREGLO: USAR LÍMITES DINÁMICOS ---
+        if (mapX < 0 || mapX >= mapWidth || mapY < 0 || mapY >= mapHeight) {
+            return false;
+        }
 
         if (worldMap[mapY][mapX] > 0) {
             return false;

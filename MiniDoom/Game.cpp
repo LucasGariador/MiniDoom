@@ -36,8 +36,8 @@ bool Game::init(const char* title, int width, int height) {
     screenWidth = width;
     screenHeight = height;
 
-    playerX = 2.5f;            // Posici�n inicial X (mitad de la celda 3)
-    playerY = 7.5f;            // Posici�n inicial Y
+    playerX = 2.5f;
+    playerY = 7.5f;
 	playerAngle = 0.0f; //ARRIBA(Norte) 3 * M_PI / 2 // Derecha(Este) 0 // Abajo(Sur) M_PI / 2 // Izquierda(Oeste) M_PI
 
     FOV = 60.0f * (M_PI / 180.0f); // 60 grados convertidos a radianes
@@ -80,7 +80,6 @@ bool Game::init(const char* title, int width, int height) {
         return 1;
     }
 
-    // 3. Crea un renderizador asociado a esa ventana (para dibujar)
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     if (!renderer) {
@@ -139,6 +138,7 @@ bool Game::init(const char* title, int width, int height) {
     textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_07.png"));
     textureEnemyMeleeAttack.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/Ogre_Attack/ogre_attack_08.png"));
 
+
     //UI
     playButton.rect = { 300, 200, 400, 100 };
     playButton.texture = Utils::LoadTextSDL("Assets/Sprites/UI/button_play.png", renderer);
@@ -146,6 +146,14 @@ bool Game::init(const char* title, int width, int height) {
         std::cerr << "Error cargando textura del bot�n: " << SDL_GetError() << std::endl;
         return false;
     }
+
+    //worldItems
+    portalAnim.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/portal_anim_0.png"));
+    portalAnim.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/portal_anim_1.png"));
+    portalAnim.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/portal_anim_2.png"));
+    portalAnim.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/portal_anim_3.png"));
+    portalAnim.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/portal_anim_4.png"));
+    portalAnim.push_back(ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/portal_anim_5.png"));
 
     SDL_Color textColor = { 0, 0, 0, 255 }; // Blanco
     SDL_Surface* textSurface = TTF_RenderText_Blended(font, "START GAME", textColor);
@@ -164,21 +172,26 @@ bool Game::init(const char* title, int width, int height) {
     playButton.rect.w = 400;
     playButton.rect.h = 100;
 
-    int screenW = 800; // Ajusta a tu ancho de ventana
-    int screenH = 600; // Ajusta a tu alto de ventana
+    int screenW = 800;
+    int screenH = 600;
 
-    // Centrado horizontal: (Pantalla / 2) - (Bot�n / 2)
     playButton.rect.x = (screenW / 2) - (playButton.rect.w / 2);
-    // Un poco m�s abajo del centro vertical
+
     playButton.rect.y = (screenH / 2) - (playButton.rect.h / 2);
 
 
-    // Centrar el texto autom�ticamente
     textRect.x = playButton.rect.x + (playButton.rect.w - textRect.w) / 2;
     textRect.y = playButton.rect.y + (playButton.rect.h - textRect.h) / 2;
 
     SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h);
 
+    levelFiles.push_back("Assets/Maps/map_1.json");
+    levelFiles.push_back("Assets/Maps/map_2.json");
+    levelFiles.push_back("Assets/Maps/map_3.json");
+
+    currentLevelIndex = 0;
+
+    loadMapFromJSON("Assets/Maps/map_1.json");
     loadLevel();
     std::cout << "--- TODO CARGADO. INICIANDO GAME LOOP ---" << std::endl;
     isRunning = true;
@@ -246,6 +259,9 @@ void Game::handleEvents() {
             else if (event.key.keysym.sym == SDLK_m) {
                 showMinimap = !showMinimap;
             }
+            else if (event.key.keysym.sym == SDLK_n) {
+                debugMode = !debugMode;
+            }
         }
     }
 
@@ -273,11 +289,9 @@ void Game::update() {
     deltaTime = (now - prevTicks) / 1000.0f;
     prevTicks = now;
 
-    // Movimiento Jugador (WASD)
     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
     float moveStep = moveSpeed * deltaTime;
 
-    // C�lculo de vectores de movimiento (optimizamos calculando seno/coseno una sola vez)
     float cosA = cosf(playerAngle);
     float sinA = sinf(playerAngle);
 
@@ -311,15 +325,14 @@ void Game::update() {
 		// chequear colisiones
         if (!p->active) continue;
         if (p->hostile) {
-            // --- BALA ENEMIGA VS JUGADOR ---
             // Chequea colision con el jugador
             float dx = p->x - playerX;
             float dy = p->y - playerY;
             if ((dx * dx + dy * dy) < 0.3f) { // Radio del jugador
-                health -= 10; // Da�o de la bala
+                health -= 10; // Daño de la bala
                 p->active = false;
                 std::cout << "Te dieron! Salud: " << health << std::endl;
-				// A�adir efecto de da�o
+				// Anadir efecto de dano
             }
         }
         else
@@ -336,7 +349,7 @@ void Game::update() {
 
                 // Radio de impacto (0.5f de radio = 0.25f cuadrado)
                 if (distSq < 0.25f) {
-                    s->takeDamage(35); // Da�ar enemigo
+                    s->takeDamage(35); // Dañar enemigo
                     p->active = false; // Destruir bala
                     break;
                 }
@@ -383,9 +396,17 @@ void Game::update() {
                 // �S� es un pickup! Ejecutamos su efecto
                 // Pasamos tus variables de vida y balas por referencia
                 p->onCollect(health, ammo);
+            }
 
-                // Opcional: Reproducir sonido
-                // SoundManager::Play("pickup.wav");
+            WorldObject* wObj = dynamic_cast<WorldObject*>(s);
+            if (wObj != nullptr) {
+                
+                if (wObj->isPortal) {
+                    std::cout << "¡Pisaste el portal! Viajando al siguiente nivel..." << std::endl;
+                    
+                    loadLevel(); 
+                    return; 
+                }
             }
         }
     }
@@ -393,6 +414,9 @@ void Game::update() {
     // 2. ACTUALIZAR SPRITES (Animaciones y L�gica)
     // ------------------------------------------------------------
     for (Sprite* s : sprites) {
+        if (dynamic_cast<Enemy*>(s) == nullptr) {
+            s->update(deltaTime);
+        }
         s->update(deltaTime);
     }
 
@@ -527,7 +551,7 @@ void Game::renderWorld() {
         if (drawEnd < 0) drawEnd = screenHeight;
 
         // --- Draw Walls ---
-        int texNum = worldMap[mapX][mapY] - 1;
+        int texNum = worldMap[mapY][mapX] - 1;
 
         float step = 1.0f * textureHeight / lineHeight;
         float texPos = (drawStartClamped - screenHeight / 2 + lineHeight / 2) * step;
@@ -618,9 +642,7 @@ void Game::renderSprites() {
         }
     }
 
-    // Recolectamos la parte visual de los proyectiles
     for (Projectile* p : projectiles) {
-        // Asumiendo que p->spriteVis es un puntero a Sprite
         spritesToRender.push_back(p->spriteVis);
     }
 
@@ -637,7 +659,7 @@ void Game::renderSprites() {
 
     // 3. Ahora sí, dibujar de atrás hacia adelante
     for (Sprite* s : spritesToRender) {
-        s->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV);
+        s->draw(screenBuffer, zBuffer, screenWidth, screenHeight, playerX, playerY, playerAngle, FOV, debugMode);
     }
 }
 
@@ -747,7 +769,6 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
     float dx, float dy,
     const std::vector<std::vector<int>>& worldMap,
     float playerRadius, float skin) {
-    //mover en X
     float nextX = playerX + dx;
     int signX = (dx > 0.0f) ? 1 : -1;
     int testCellX = (int)(nextX + signX * playerRadius);
@@ -764,7 +785,6 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
         }
     }
 
-    // mover en Y
     float nextY = playerY + dy;
     int signY = (dy > 0.0f) ? 1 : -1;
     int testCellY = (int)(nextY + signY * playerRadius);
@@ -785,14 +805,27 @@ void Game::MoveWithCollision(float& playerX, float& playerY,
 
 void Game::loadLevel() {
     
-    for (auto s : sprites) delete s;
-    sprites.clear();
+    if (currentLevelIndex >= levelFiles.size()) {
+        clearLevelMemory();
+        std::cout << "¡FELICIDADES! Te has pasado todos los niveles." << std::endl;
+        currentState = MAINMENU;
+        return;
+    }
+    
+    clearLevelMemory();
+    
+    std::string nextLevelPath = levelFiles[currentLevelIndex];
+    if (!loadMapFromJSON(nextLevelPath)) {
+        std::cerr << "Error crítico: No se pudo avanzar al nivel " << nextLevelPath << std::endl;
+        return;
+    }
 
     crosshairSurf = Utils::LoadTexture("Assets/Sprites/UI/crosshair.png");
     crosshairTexture = SDL_CreateTextureFromSurface(renderer, crosshairSurf);
     crossW = crosshairSurf->w;
     crossH = crosshairSurf->h;
     SDL_FreeSurface(crosshairSurf);
+
 
     fireballTex = ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/fireball.png");
     // Recorremos todo el mapa
@@ -801,31 +834,13 @@ void Game::loadLevel() {
 
             int cellType = worldMap[y][x];
 
-            // SI ES UN ENEMIGO
-            if (cellType == 9) {
-                textureEnemyIdle = ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/ogre_idle_01.png");
-				std::cout << "1. Textura cargada." << std::endl;
-                Enemy* newEnemy = new Enemy(x + 0.5f, y + 0.5f, textureEnemyIdle, TYPE_MELEE);
-                std::cout << "2. Enemigo creado en memoria." << std::endl;
-                for (auto surf : textureEnemyDie) {
-                    newEnemy->addDeathFrame(surf);
-                }
-                for(auto surf : textureEnemyMeleeAttack){
-                    newEnemy->addAttackFrame(surf);
-                }
-                sprites.push_back(newEnemy);
-                std::cout << "3. Enemigo metido a la lista." << std::endl;
-                // IMPORTANTE: Borrar el 9 del mapa para que sea suelo transitable
-                worldMap[y][x] = 0;
-            }
 			if (cellType == 4) { // Health potion
                 SDL_Surface* tex = ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/health_potion.png");
-                // Creamos un Pickup en lugar de un Sprite normal
-                // Nota: x + 0.5f centra el objeto en el cuadrado
+
                 Pickup* p = new Pickup(x + 0.5f, y + 0.5f, tex, PICKUP_HEALTH, 25);
 
-                sprites.push_back(p); // Lo guardamos en la misma lista que los enemigos
-                worldMap[y][x] = 0;   // Borramos el n�mero del mapa para que no sea pared
+                sprites.push_back(p);
+                worldMap[y][x] = 0;
             }
 			else if (cellType == 5) { // Mana potion
                 SDL_Surface* tex = ResourceManager::Get().GetTexture("Assets/Sprites/Enviroment/mana_potion.png");
@@ -834,27 +849,55 @@ void Game::loadLevel() {
                 sprites.push_back(p);
                 worldMap[y][x] = 0;
             }
-
-            // SI ES EL JUGADOR
-            else if (cellType == 7) {
+            else if (cellType == 7) { //Portal
+                
+                WorldObject* portal = new WorldObject(x + 0.5f, y + 0.5f, portalAnim[0], 1.0f, true, false, false);
+                portal -> setZOffset(300.0f);
+                portal -> isPortal = true;
+                for (auto surf : portalAnim)
+                {
+                    portal->addIdleFrame(surf);
+                }
+                
+                sprites.push_back(portal);
+                worldMap[y][x] = 0;
+            }else if (cellType == 8)
+            {
                 playerX = x + 0.5f;
                 playerY = y + 0.5f;
-                worldMap[y][x] = 0; // Limpiar celda
+                worldMap[y][x] = 0;
             }
+            if (cellType == 9) 
+            {
+                textureEnemyIdle = ResourceManager::Get().GetTexture("Assets/Sprites/Enemies/ogre_idle_01.png");
+				std::cout << "1. Textura cargada." << std::endl;
+                Enemy* newEnemy = new Enemy(x + 0.5f, y + 0.5f, textureEnemyIdle, TYPE_MELEE);
+                for (auto surf : textureEnemyDie) {
+                    newEnemy->addDeathFrame(surf);
+                }
+                for(auto surf : textureEnemyMeleeAttack){
+                    newEnemy->addAttackFrame(surf);
+                }
+                sprites.push_back(newEnemy);
+
+                worldMap[y][x] = 0;
+            }
+            
 
         }
     }
+    std::cout << "--- Nivel " << (currentLevelIndex + 1) << " Iniciado ---" << std::endl;
+    
+    currentLevelIndex++;
 }
 
 bool Game::loadMapFromJSON(const std::string& filepath) {
-    // 1. Abrimos el archivo
     std::ifstream file(filepath);
     if (!file.is_open()) {
         std::cerr << "ERROR FATAL: No se pudo abrir el archivo JSON: " << filepath << std::endl;
         return false;
     }
 
-    // 2. Parseamos la estructura
     json j;
     try {
         file >> j; 
@@ -863,13 +906,10 @@ bool Game::loadMapFromJSON(const std::string& filepath) {
         return false;
     }
 
-    // 3. Verificamos que tenga la clave "map"
     if (j.contains("map")) {
         
-        // ¡Carga automática del array 2D!
         worldMap = j["map"].get<std::vector<std::vector<int>>>(); 
         
-        // Actualizamos los límites del motor
         mapHeight = worldMap.size();
         mapWidth = (mapHeight > 0) ? worldMap[0].size() : 0;
 
@@ -890,13 +930,7 @@ bool Game::loadMapFromJSON(const std::string& filepath) {
     }
 }
 
-void Game::drawMinimap(SDL_Renderer* renderer,
-	int mapWidth, int mapHeight, const std::vector<std::vector<int>>& worldMap,
-    float playerX, float playerY,
-    float playerAngle,
-    float fov,             // FOV en radianes
-    int screenWidth, int screenHeight,
-    const std::vector<float>& zBuffer) // opcional si quers pintar alcance de rayos
+void Game::drawMinimap(SDL_Renderer* renderer, int mapWidth, int mapHeight, const std::vector<std::vector<int>>& worldMap, float playerX, float playerY, float playerAngle, float fov, int screenWidth, int screenHeight, const std::vector<float>& zBuffer)
 {
     // Origen del minimap en pantalla
     int originX = MINI_PADDING;
@@ -967,6 +1001,19 @@ void Game::drawMinimap(SDL_Renderer* renderer,
     SDL_RenderDrawLine(renderer, px, py, lookX, lookY);
 }
 
+void Game::clearLevelMemory() {
+    // Eliminar proyectiles
+    for (auto p : projectiles) { delete p; }
+    projectiles.clear();
+
+    // Eliminar enemigos y pickups
+    for (auto s : sprites) { delete s; }
+    sprites.clear();
+
+    // Limpiar el mapa
+    worldMap.clear();  
+}
+
 void Game::clean() {
     std::cout << "Iniciando limpieza..." << std::endl;
 
@@ -990,14 +1037,13 @@ void Game::clean() {
     // LIMPIAR RECURSOS
     // ---------------------------------------------------------
     // El Manager se encarga de borrar TODAS las superficies (Suelo, Paredes, Enemigos)
-    // NOTA: Ya no necesitas borrar textureEnemyDie manualmente si usas el Manager.
     ResourceManager::Get().Clear();
 	playerStaff.clean();
 	handsWeapon.clean();
 	currentWeapon = nullptr;
 
     // ---------------------------------------------------------
-    // LIMPIAR RECURSOS ESPEC�FICOS DE SDL
+    // LIMPIAR RECURSOS ESPECEFICOS DE SDL
     // ---------------------------------------------------------
 
     // Buffer de Video
